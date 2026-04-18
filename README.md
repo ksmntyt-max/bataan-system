@@ -4,7 +4,7 @@
 
 A geospatial land intelligence platform for the Province of Bataan, Central Luzon, Philippines. Built for Firma Strategic to identify, score, and compare land acquisition opportunities for sovereign infrastructure deployment.
 
-Live: [firma-blis.vercel.app](https://firma-blis.vercel.app)
+Live: [firma-blis.vercel.app](https://firma-blis.vercel.app) · GitHub: [ksmntyt-max/bataan-system](https://github.com/ksmntyt-max/bataan-system)
 
 ---
 
@@ -36,7 +36,44 @@ Click any point on the map to deploy an asset and instantly get a **composite sc
 - **Municipality Comparison** — all 12 municipalities side-by-side at `/compare`
 - **Google Street View** — deep-link from any pin, parcel, or recommendation
 - **Pin management** — deploy assets, view scores, remove pins from map or sidebar
+- **Map Legend** — collapsible on-map legend explaining every indicator and color
+- **Layer descriptions** — each sidebar layer toggle shows what the layer represents
 - **Print to PDF** — browser-native export of parcel detail panels
+
+---
+
+## Map Indicators
+
+| Indicator | Meaning |
+|-----------|---------|
+| Blue dashed outline | Province of Bataan boundary |
+| 🟢 Green dot | Low zonal value — ₱800–2,500/sqm |
+| 🟡 Yellow dot | Mid zonal value — ₱2,500–5,000/sqm |
+| 🟠 Orange dot | High zonal value — ₱5,000–8,500/sqm |
+| 🔵 Blue infra icon | Port / Freeport (SBFZ/SBMA) |
+| 🟠 Orange infra icon | Power grid / substation |
+| 🟡 Yellow infra icon | Road / highway node |
+| 🟣 Purple infra icon | Fiber / connectivity hub |
+| Red parcel badge | HIGH urgency land — act now |
+| Orange parcel badge | MEDIUM urgency — good opportunity |
+| Grey parcel badge | LOW urgency — monitor & watch |
+| Score badge on pin | Composite investment score 0–100 |
+
+Open the **⬡ MAP LEGEND** button (bottom-left of map) for a full in-app reference.
+
+---
+
+## Map Layers
+
+| Layer | Description |
+|-------|-------------|
+| Zonal Value Zones | BIR land values per sqm — color-coded by municipality |
+| Infrastructure | Ports, power grids, freeports, roads & fiber nodes |
+| Recommendations | Top-ranked deployment sites per Firma asset type |
+| Land Parcels | Pre-screened acquisition targets with urgency ratings |
+| Composite Heatmap | Province-wide investment score heat by location |
+| Hazard Zones | PHIVOLCS flood, storm surge & liquefaction risk areas |
+| CLUP Zoning | Municipal land use plan — Agri, Industrial, Commercial, Protected |
 
 ---
 
@@ -65,7 +102,7 @@ bataan-lis/
 ├── components/
 │   ├── GlobeScreen.jsx      # Animated entry screen
 │   ├── MapWrapper.jsx       # Dynamic import wrapper (ssr:false)
-│   ├── MapInner.jsx         # Leaflet map, layers, scoring
+│   ├── MapInner.jsx         # Leaflet map, layers, legend, scoring
 │   ├── Sidebar.jsx          # 5-tab sidebar (Layers/Pins/Recs/Land/Data)
 │   ├── ParcelPanel.jsx      # Parcel detail slide-in panel
 │   ├── ScoreBreakdown.jsx   # 4-factor score bars
