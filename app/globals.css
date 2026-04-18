@@ -154,6 +154,16 @@ html,body { width:100vw; height:100vh; overflow:hidden; background:var(--bg); co
 .map-coords { position:absolute; top:10px; right:10px; z-index:400; background:rgba(8,18,38,.88); border:1px solid var(--border); border-radius:4px; padding:5px 10px; font-family:var(--font-orbitron); font-size:10px; color:var(--green); display:flex; gap:8px; align-items:center; backdrop-filter:blur(8px) }
 .cl { color:var(--dim); font-size:8px; letter-spacing:.1em }
 
+/* Map Legend */
+.map-legend { position:absolute; bottom:16px; left:12px; z-index:400; max-width:230px }
+.mleg-toggle { display:flex; align-items:center; gap:6px; background:rgba(8,18,38,.92); border:1px solid var(--border); border-radius:5px; padding:6px 10px; font-family:var(--font-orbitron); font-size:9px; letter-spacing:.1em; color:var(--accent); cursor:pointer; backdrop-filter:blur(10px); width:100% }
+.mleg-arrow { margin-left:auto; font-size:10px }
+.mleg-body { background:rgba(8,18,38,.95); border:1px solid var(--border); border-top:none; border-radius:0 0 5px 5px; padding:10px 12px; backdrop-filter:blur(10px) }
+.mleg-section { font-family:var(--font-orbitron); font-size:7.5px; letter-spacing:.12em; color:var(--accent); margin-bottom:5px; padding-bottom:3px; border-bottom:1px solid rgba(0,180,255,.1) }
+.mleg-row { display:flex; align-items:center; gap:7px; padding:2px 0; font-size:9px; color:var(--text) }
+.mleg-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0 }
+.mleg-line { width:22px; height:0; border-top:2px dashed; flex-shrink:0 }
+
 /* ═══ SIDEBAR ═══ */
 #sidebar { width:308px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--border); display:flex; flex-direction:column; backdrop-filter:blur(12px); z-index:50; overflow:hidden }
 .tab-bar { display:flex; border-bottom:1px solid var(--border); flex-shrink:0 }

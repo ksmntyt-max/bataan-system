@@ -30,6 +30,7 @@ export default function MapInner({
   const placing         = useRef(false)
   const pinMarkers      = useRef(new Map()) // id -> L.Marker
   const [coords, setCoords] = useState({ lat: '14.6560', lng: '120.4900' })
+  const [legendOpen, setLegendOpen] = useState(false)
 
   useEffect(() => {
     if (mapInstance.current) return
@@ -263,6 +264,50 @@ export default function MapInner({
       <div className="map-coords">
         <span className="cl">LAT</span> <span>{coords.lat}°N</span>
         <span className="cl" style={{marginLeft:8}}>LNG</span> <span>{coords.lng}°E</span>
+      </div>
+
+      {/* Map Legend */}
+      <div className="map-legend">
+        <button className="mleg-toggle" onClick={() => setLegendOpen(v => !v)}>
+          <span>⬡</span> MAP LEGEND <span className="mleg-arrow">{legendOpen ? '▾' : '▸'}</span>
+        </button>
+        {legendOpen && (
+          <div className="mleg-body">
+            <div className="mleg-section">PROVINCE BOUNDARY</div>
+            <div className="mleg-row">
+              <div className="mleg-line dashed" style={{borderColor:'rgba(0,180,255,.7)'}} />
+              <span>Bataan province border outline</span>
+            </div>
+
+            <div className="mleg-section" style={{marginTop:8}}>ZONAL VALUE ZONES</div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#00ff88'}} /><span>Low value — ₱800–2,500/sqm</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ffcc00'}} /><span>Mid value — ₱2,500–5,000/sqm</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ff6b35'}} /><span>High value — ₱5,000–8,500/sqm</span></div>
+            <div className="mleg-row" style={{fontSize:8,color:'var(--dim)',marginTop:2,paddingLeft:14}}>
+              <span>Dot size = municipality zone radius · Click for details</span>
+            </div>
+
+            <div className="mleg-section" style={{marginTop:8}}>INFRASTRUCTURE</div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#00b4ff'}} /><span>Port / Freeport (SBFZ/SBMA)</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ff6b35'}} /><span>Power grid / substation</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ffcc00'}} /><span>Road / highway node</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#9c44ff'}} /><span>Fiber / connectivity hub</span></div>
+
+            <div className="mleg-section" style={{marginTop:8}}>LAND PARCELS</div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ff3355',borderRadius:2}} /><span>HIGH urgency — act now</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ff6b35',borderRadius:2}} /><span>MEDIUM — good opportunity</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#4a6278',borderRadius:2}} /><span>LOW — monitor & watch</span></div>
+
+            <div className="mleg-section" style={{marginTop:8}}>DEPLOYED ASSETS</div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#00b4ff'}} /><span>🏛️ Firma HQ pin</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#00ff88'}} /><span>🏘️ Haven Village pin</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ff6b35'}} /><span>⛏️ Steel Forge pin</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ffcc00'}} /><span>☀️ Solar Farm pin</span></div>
+            <div className="mleg-row" style={{fontSize:8,color:'var(--dim)',marginTop:2,paddingLeft:14}}>
+              <span>Score badge = composite 0–100 · Click pin to remove</span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
