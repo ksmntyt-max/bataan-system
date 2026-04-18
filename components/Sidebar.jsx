@@ -90,28 +90,34 @@ export default function Sidebar({
 
           <div className="shd" style={{marginTop:6}}>MAP LAYERS</div>
           {[
-            { label:'Zonal Value Zones',  on: zonesOn,   toggle: onToggleZones,   dot: '#ffcc00' },
-            { label:'Infrastructure',     on: infraOn,   toggle: onToggleInfra,   dot: '#00b4ff' },
-            { label:'Recommendations',    on: recsOn,    toggle: onToggleRecs,    dot: '#00ff88' },
-            { label:'Land Parcels',       on: landOn,    toggle: onToggleLand,    dot: '#ffcc00' },
-            { label:'Composite Heatmap',  on: heatmapOn, toggle: onToggleHeatmap, dot: '#ff6b35' },
+            { label:'Zonal Value Zones',  desc:'BIR land values per sqm — color-coded by municipality', on: zonesOn,   toggle: onToggleZones,   dot: '#ffcc00' },
+            { label:'Infrastructure',     desc:'Ports, power grids, freeports, roads & fiber nodes',    on: infraOn,   toggle: onToggleInfra,   dot: '#00b4ff' },
+            { label:'Recommendations',    desc:'Top-ranked deployment sites per Firma asset type',       on: recsOn,    toggle: onToggleRecs,    dot: '#00ff88' },
+            { label:'Land Parcels',       desc:'Pre-screened acquisition targets with urgency ratings',  on: landOn,    toggle: onToggleLand,    dot: '#ffcc00' },
+            { label:'Composite Heatmap',  desc:'Province-wide investment score heat by location',        on: heatmapOn, toggle: onToggleHeatmap, dot: '#ff6b35' },
           ].map(l => (
             <div key={l.label} className="lrow" onClick={l.toggle}>
               <div className={`tsw${l.on ? ' on' : ''}`}><div className="tth" /></div>
               <div className="ldot" style={{background: l.dot}} />
-              <span className="lname">{l.label}</span>
+              <div className="lname-wrap">
+                <span className="lname">{l.label}</span>
+                <span className="ldesc">{l.desc}</span>
+              </div>
             </div>
           ))}
 
           <div className="shd" style={{marginTop:6}}>NEW DATA LAYERS</div>
           {[
-            { label:'Hazard Zones (Flood/Surge)',  on: hazardOn, toggle: onToggleHazard, dot: '#ff3355' },
-            { label:'CLUP Zoning (Agri/Ind/Com)',  on: clupOn,   toggle: onToggleClup,   dot: '#9c44ff' },
+            { label:'Hazard Zones', desc:'PHIVOLCS flood, storm surge & liquefaction risk areas', on: hazardOn, toggle: onToggleHazard, dot: '#ff3355' },
+            { label:'CLUP Zoning',  desc:'Municipal land use plan — Agri, Industrial, Commercial, Protected', on: clupOn, toggle: onToggleClup, dot: '#9c44ff' },
           ].map(l => (
             <div key={l.label} className="lrow" onClick={l.toggle}>
               <div className={`tsw${l.on ? ' on' : ''}`}><div className="tth" /></div>
               <div className="ldot" style={{background: l.dot}} />
-              <span className="lname">{l.label}</span>
+              <div className="lname-wrap">
+                <span className="lname">{l.label}</span>
+                <span className="ldesc">{l.desc}</span>
+              </div>
             </div>
           ))}
 
