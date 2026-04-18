@@ -133,7 +133,7 @@ export default function Sidebar({
   heatmapOn, zonesOn, infraOn, recsOn, landOn,
   onToggleHeatmap, onToggleZones, onToggleInfra, onToggleRecs, onToggleLand,
   hazardOn, clupOn, onToggleHazard, onToggleClup,
-  sovereignOn, omnimeshOn, onToggleSovereign, onToggleOmnimesh,
+  sovereignOn, omnimeshOn, strategicOn, onToggleSovereign, onToggleOmnimesh, onToggleStrategic,
   deployedPins, onPinDelete, onFlyToRec,
   onOpenCalc,
 }) {
@@ -236,8 +236,9 @@ export default function Sidebar({
           {[
             { label:'Hazard Zones',     desc:'PHIVOLCS flood, storm surge & liquefaction risk areas',              on: hazardOn,    toggle: onToggleHazard,    dot: '#ff3355' },
             { label:'CLUP Zoning',      desc:'Municipal land use plan — Agri, Industrial, Commercial, Protected',   on: clupOn,      toggle: onToggleClup,      dot: '#9c44ff' },
-            { label:'Sovereign Layer',  desc:'LGU alignment status & permit pathway readiness per parcel',          on: sovereignOn, toggle: onToggleSovereign, dot: '#00ff88' },
-            { label:'OmniMesh Network', desc:'Node/Sentinel/Pulse/Whisper topology — planned mesh coverage map',   on: omnimeshOn,  toggle: onToggleOmnimesh,  dot: '#00b4ff' },
+            { label:'Sovereign Layer',  desc:'LGU alignment status & permit pathway readiness per parcel',          on: sovereignOn,  toggle: onToggleSovereign,  dot: '#00ff88' },
+            { label:'OmniMesh Network', desc:'Node/Sentinel/Pulse/Whisper topology — planned mesh coverage map',   on: omnimeshOn,   toggle: onToggleOmnimesh,   dot: '#00b4ff' },
+            { label:'Strategic Context',desc:'SBFZ · Clark FZ · FAB · Hermosa Ecozone · Airports · BCIB 2029',    on: strategicOn,  toggle: onToggleStrategic,  dot: '#ffcc00' },
           ].map(l => (
             <div key={l.label} className="lrow" onClick={l.toggle}>
               <div className={`tsw${l.on ? ' on' : ''}`}><div className="tth" /></div>

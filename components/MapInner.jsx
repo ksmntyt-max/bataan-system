@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { MUNICIPALITIES, INFRA, ASSETS, RECS, LAND_OPPS, BATAAN_OUTLINE, SOVEREIGN_PROFILES, OMNIMESH_NODES } from '@/lib/data'
+import { MUNICIPALITIES, INFRA, ASSETS, RECS, LAND_OPPS, BATAAN_OUTLINE, CORREGIDOR_ISLAND, SOVEREIGN_PROFILES, OMNIMESH_NODES } from '@/lib/data'
 import { calcScore, landCompatScore, scoreColor, zonalColor, formatPHP } from '@/lib/scoring'
 
 const HAZARD_COLORS = {
@@ -20,10 +20,36 @@ const ZONE_COLORS = {
 
 const OMNIMESH_COLORS = { Node:'#00b4ff', Sentinel:'#00ff88', Pulse:'#ff6b35', Whisper:'#9c44ff' }
 
+// ── STRATEGIC CONTEXT LAYER DATA ────────────────────────────────────────────
+const SBFZ_POLY = [
+  [14.830,120.252],[14.857,120.258],[14.878,120.278],[14.882,120.303],
+  [14.862,120.326],[14.838,120.322],[14.812,120.312],[14.798,120.290],
+  [14.803,120.265],[14.820,120.252],
+]
+const FAB_POLY = [ // Freeport Area of Bataan — Mariveles
+  [14.438,120.456],[14.453,120.460],[14.462,120.474],
+  [14.456,120.486],[14.441,120.483],[14.434,120.469],
+]
+const HERMOSA_POLY = [ // Hermosa Ecozone / HEIP
+  [14.826,120.500],[14.840,120.504],[14.845,120.518],
+  [14.836,120.527],[14.823,120.522],[14.818,120.508],
+]
+const CLARK_POLY = [ // Clark Freeport Zone — Pampanga (strategic context)
+  [15.155,120.490],[15.165,120.520],[15.190,120.575],[15.210,120.578],
+  [15.215,120.555],[15.215,120.530],[15.200,120.510],[15.178,120.490],
+]
+// BCIB — Bataan-Cavite Interlink Bridge, Manila Bay crossing (planned 2029)
+const BCIB_LINE = [
+  [14.425,120.488], // Mariveles port (Manila Bay side)
+  [14.392,120.572], // Corregidor Island vicinity
+  [14.355,120.650], // mid-Manila Bay
+  [14.325,120.756], // Naic, Cavite landing
+]
+
 export default function MapInner({
   selectedAsset,
   heatmapOn, zonesOn, infraOn, recsOn, landOn,
-  sovereignOn, omnimeshOn,
+  sovereignOn, omnimeshOn, strategicOn,
   onParcelSelect, onScoreUpdate,
   csvParcels, deployedPins, onPinDeploy, onPinRemove,
   flyTarget,
@@ -49,8 +75,63 @@ export default function MapInner({
     mapInstance.current = map
 
     // Province outline
-    L.polygon(BATAAN_OUTLINE, { color: 'rgba(0,180,255,.5)', weight: 1.5, fillColor: 'rgba(0,100,255,.03)', fillOpacity: 1, dashArray: '6,4' }).addTo(map)
+    L.polygon(BATAAN_OUTLINE, { color: 'rgba(0,180,255,.55)', weight: 1.8, fillColor: 'rgba(0,100,255,.04)', fillOpacity: 1, dashArray: '6,4' }).addTo(map)
       .bindTooltip('<span style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:.1em">PROVINCE OF BATAAN</span>', { className: 'mpop' })
+
+    // Corregidor Island
+    L.polygon(CORREGIDOR_ISLAND, { color: 'rgba(0,180,255,.45)', weight: 1.2, fillColor: 'rgba(0,100,180,.08)', fillOpacity: 1, dashArray: '4,3' }).addTo(map)
+      .bindTooltip('<span style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:.1em">CORREGIDOR ISLAND</span>', { className: 'mpop' })
+
+    // Strategic context layer — SBFZ, FAB, Hermosa, Clark, airports, BCIB
+    const strategicLayer = L.layerGroup()
+
+    // SBFZ — Subic Bay Freeport Zone
+    L.polygon(SBFZ_POLY, { color:'rgba(255,204,0,.65)', weight:1.5, fillColor:'rgba(255,204,0,.06)', fillOpacity:1, dashArray:'8,5' })
+      .bindTooltip('<span style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:.1em;color:#ffcc00">SUBIC BAY FREEPORT ZONE</span>', { className:'mpop' })
+      .addTo(strategicLayer)
+    L.marker([14.840, 120.290], { icon: L.divIcon({ html:`<div style="font-family:Orbitron,monospace;font-size:8px;color:#ffcc00;text-shadow:0 0 8px #ffcc00,0 1px 3px #000;white-space:nowrap;letter-spacing:.07em">⬡ SBFZ</div>`, className:'', iconSize:[60,14], iconAnchor:[30,7] }), zIndexOffset:400 }).addTo(strategicLayer)
+
+    // Subic Bay International Airport (SFS)
+    L.marker([14.796, 120.270], { icon: L.divIcon({ html:`<div class="strat-airport" style="border-color:#ffcc00;color:#ffcc00">✈ SFS</div>`, className:'', iconSize:[1,1] }), zIndexOffset:410 })
+      .bindPopup(`<div class="pt" style="color:#ffcc00">✈ Subic Bay International Airport (SFS)</div><div style="font-size:10px;color:#ccd8e8;line-height:1.55">Within SBFZ — handles cargo + charter flights. Key logistics node for container equipment imports into the Subic-Clark-Bataan triangle.</div>`, { className:'mpop', maxWidth:260 })
+      .addTo(strategicLayer)
+
+    // FAB — Freeport Area of Bataan
+    L.polygon(FAB_POLY, { color:'rgba(0,180,255,.65)', weight:1.5, fillColor:'rgba(0,180,255,.07)', fillOpacity:1, dashArray:'6,4' })
+      .bindTooltip('<span style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:.1em;color:#00b4ff">FREEPORT AREA OF BATAAN</span>', { className:'mpop' })
+      .addTo(strategicLayer)
+    L.marker([14.449, 120.470], { icon: L.divIcon({ html:`<div style="font-family:Orbitron,monospace;font-size:8px;color:#00b4ff;text-shadow:0 0 8px #00b4ff,0 1px 3px #000;white-space:nowrap;letter-spacing:.07em">⬡ FAB</div>`, className:'', iconSize:[50,14], iconAnchor:[25,7] }), zIndexOffset:400 }).addTo(strategicLayer)
+
+    // Hermosa Ecozone (HEIP)
+    L.polygon(HERMOSA_POLY, { color:'rgba(0,255,136,.60)', weight:1.5, fillColor:'rgba(0,255,136,.06)', fillOpacity:1, dashArray:'6,4' })
+      .bindTooltip('<span style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:.1em;color:#00ff88">HERMOSA ECOZONE</span>', { className:'mpop' })
+      .addTo(strategicLayer)
+    L.marker([14.833, 120.513], { icon: L.divIcon({ html:`<div style="font-family:Orbitron,monospace;font-size:8px;color:#00ff88;text-shadow:0 0 8px #00ff88,0 1px 3px #000;white-space:nowrap;letter-spacing:.07em">⬡ HEIP</div>`, className:'', iconSize:[52,14], iconAnchor:[26,7] }), zIndexOffset:400 }).addTo(strategicLayer)
+
+    // Clark Freeport Zone (Pampanga — strategic triangle context)
+    L.polygon(CLARK_POLY, { color:'rgba(156,68,255,.60)', weight:1.5, fillColor:'rgba(156,68,255,.06)', fillOpacity:1, dashArray:'8,5' })
+      .bindTooltip('<span style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:.1em;color:#9c44ff">CLARK FREEPORT ZONE</span>', { className:'mpop' })
+      .addTo(strategicLayer)
+    L.marker([15.183, 120.533], { icon: L.divIcon({ html:`<div style="font-family:Orbitron,monospace;font-size:8px;color:#9c44ff;text-shadow:0 0 8px #9c44ff,0 1px 3px #000;white-space:nowrap;letter-spacing:.07em">⬡ CLARK FZ</div>`, className:'', iconSize:[68,14], iconAnchor:[34,7] }), zIndexOffset:400 }).addTo(strategicLayer)
+
+    // Clark International Airport (CRK)
+    L.marker([15.187, 120.560], { icon: L.divIcon({ html:`<div class="strat-airport" style="border-color:#9c44ff;color:#9c44ff">✈ CRK</div>`, className:'', iconSize:[1,1] }), zIndexOffset:410 })
+      .bindPopup(`<div class="pt" style="color:#9c44ff">✈ Clark International Airport (CRK)</div><div style="font-size:10px;color:#ccd8e8;line-height:1.55">Clark Freeport Zone, Pampanga. Second international gateway of Metro Manila area. Key node in the Subic-Clark-Bataan economic triangle. ~45 km from Bataan's northern border.</div>`, { className:'mpop', maxWidth:260 })
+      .addTo(strategicLayer)
+
+    // BCIB — Bataan-Cavite Interlink Bridge (planned, Dec 2029)
+    L.polyline(BCIB_LINE, { color:'#ffcc00', weight:3, dashArray:'12,7', opacity:0.80 })
+      .bindPopup(`<div class="pt" style="color:#ffcc00">🌉 Bataan-Cavite Interlink Bridge (BCIB)</div>
+        <div class="pr"><span class="pk">Route</span><span class="pv">Mariveles → Naic, Cavite</span></div>
+        <div class="pr"><span class="pk">Length</span><span class="pv">32.15 km (sea crossing)</span></div>
+        <div class="pr"><span class="pk">Target Completion</span><span class="pv" style="color:#ffcc00">December 2029</span></div>
+        <div style="font-size:9px;color:#ccd8e8;line-height:1.55;margin-top:6px">Connects Mariveles to CALAX/CAVITEX expressway network, reducing Manila-Bataan travel time by 3–4 hours. Critical infrastructure trigger for Bataan land value appreciation along the Manila Bay corridor.</div>`,
+        { className:'mpop', maxWidth:300 })
+      .addTo(strategicLayer)
+    // BCIB label at midpoint
+    L.marker([14.376, 120.618], { icon: L.divIcon({ html:`<div style="font-family:Orbitron,monospace;font-size:8px;color:#ffcc00;text-shadow:0 0 10px #ffcc00,0 1px 3px #000;white-space:nowrap;letter-spacing:.07em;background:rgba(0,0,0,.55);padding:2px 5px;border-radius:3px;border:1px solid rgba(255,204,0,.3)">⊶ BCIB 2029</div>`, className:'', iconSize:[80,18], iconAnchor:[40,9] }), zIndexOffset:420 }).addTo(strategicLayer)
+
+    layers.current.strategic = strategicLayer
 
     // Zones layer
     const zonesLayer = L.layerGroup()
@@ -276,6 +357,7 @@ export default function MapInner({
   useEffect(() => { toggleLayer('clup',    false)     }, []) // off by default
   useEffect(() => { toggleLayer('sovereign', sovereignOn) }, [sovereignOn])
   useEffect(() => { toggleLayer('omnimesh',  omnimeshOn)  }, [omnimeshOn])
+  useEffect(() => { toggleLayer('strategic', strategicOn) }, [strategicOn])
 
   // Fly to target when requested from sidebar
   useEffect(() => {

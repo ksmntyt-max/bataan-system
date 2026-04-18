@@ -36,6 +36,7 @@ export default function Home() {
   const [clupOn,        setClupOn]        = useState(false)
   const [sovereignOn,   setSovereignOn]   = useState(false)
   const [omnimeshOn,    setOmnimeshOn]    = useState(false)
+  const [strategicOn,   setStrategicOn]   = useState(false)
   const [deployedPins,  setDeployedPins]  = useState([])
   const [lastScore,     setLastScore]     = useState(null)
   const [selectedParcel,setSelectedParcel]= useState(null)
@@ -86,7 +87,7 @@ export default function Home() {
             onAssetChange={setSelectedAsset}
             heatmapOn={heatmapOn} zonesOn={zonesOn} infraOn={infraOn} recsOn={recsOn} landOn={landOn}
             hazardOn={hazardOn}     clupOn={clupOn}
-            sovereignOn={sovereignOn} omnimeshOn={omnimeshOn}
+            sovereignOn={sovereignOn} omnimeshOn={omnimeshOn} strategicOn={strategicOn}
             onToggleHeatmap={() => setHeatmapOn(v => !v)}
             onToggleZones={()   => setZonesOn(v => !v)}
             onToggleInfra={()   => setInfraOn(v => !v)}
@@ -96,6 +97,7 @@ export default function Home() {
             onToggleClup={()    => setClupOn(v => !v)}
             onToggleSovereign={() => setSovereignOn(v => !v)}
             onToggleOmnimesh={() => setOmnimeshOn(v => !v)}
+            onToggleStrategic={() => setStrategicOn(v => !v)}
             deployedPins={deployedPins}
             onPinDelete={id => {
               setDeployedPins(p => p.filter(pin => pin.id !== id))
@@ -109,7 +111,7 @@ export default function Home() {
             <MapWrapper
               selectedAsset={selectedAsset}
               heatmapOn={heatmapOn} zonesOn={zonesOn} infraOn={infraOn} recsOn={recsOn} landOn={landOn}
-              sovereignOn={sovereignOn} omnimeshOn={omnimeshOn}
+              sovereignOn={sovereignOn} omnimeshOn={omnimeshOn} strategicOn={strategicOn}
               onParcelSelect={setSelectedParcel}
               onScoreUpdate={setLastScore}
               csvParcels={csvParcels}

@@ -460,6 +460,9 @@ html,body { width:100vw; height:100vh; overflow:hidden; background:var(--bg); co
 .mesh-lbl { position:absolute; bottom:-14px; left:50%; transform:translateX(-50%); font-family:var(--font-orbitron); font-size:6px; letter-spacing:.08em; color:var(--mc,#00b4ff); white-space:nowrap; background:rgba(4,8,16,.88); padding:1px 3px; border-radius:2px }
 @keyframes meshPulse { 0%{transform:scale(.5);opacity:.7} 100%{transform:scale(1.8);opacity:0} }
 
+/* ═══ STRATEGIC CONTEXT MAP MARKERS ═══ */
+.strat-airport { font-family:var(--font-orbitron); font-size:8px; letter-spacing:.08em; background:rgba(0,0,0,.82); border:1px solid currentColor; border-radius:4px; padding:3px 7px; white-space:nowrap; backdrop-filter:blur(6px); cursor:pointer }
+
 /* ═══ ECO TAB ═══ */
 .tab-btn.eco-tab { color:rgba(156,68,255,.6) }
 .tab-btn.eco-tab.on { color:#9c44ff; border-bottom-color:#9c44ff }
