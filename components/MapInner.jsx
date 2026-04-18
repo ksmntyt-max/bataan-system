@@ -206,6 +206,11 @@ export default function MapInner({
     })
 
     setTimeout(() => map.flyTo([14.62, 120.47], 11, { duration: 2.0 }), 300)
+
+    // Invalidate size on window resize so map fills container correctly
+    const onResize = () => map.invalidateSize()
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
   }, [])
 
   // Layer toggles
@@ -259,8 +264,8 @@ export default function MapInner({
   }, [deployedPins])
 
   return (
-    <div style={{ flex: 1, position: 'relative', minHeight: 0 }}>
-      <div ref={mapRef} style={{ position: 'absolute', inset: 0 }} />
+    <div style={{ flex: 1, position: 'relative', minHeight: 0, overflow: 'hidden' }}>
+      <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
       <div className="map-coords">
         <span className="cl">LAT</span> <span>{coords.lat}°N</span>
         <span className="cl" style={{marginLeft:8}}>LNG</span> <span>{coords.lng}°E</span>

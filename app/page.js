@@ -22,7 +22,10 @@ function parseCSV(text) {
 }
 
 export default function Home() {
-  const [entered,       setEntered]       = useState(false)
+  const [entered,       setEntered]       = useState(() => {
+    if (typeof window !== 'undefined') return sessionStorage.getItem('blis_entered') === '1'
+    return false
+  })
   const [selectedAsset, setSelectedAsset] = useState(null)
   const [heatmapOn,     setHeatmapOn]     = useState(false)
   const [zonesOn,       setZonesOn]       = useState(true)
@@ -52,7 +55,7 @@ export default function Home() {
     setFlyTarget({ lat: rec.lat, lng: rec.lng })
   }, [])
 
-  if (!entered) return <GlobeScreen onEnter={() => setEntered(true)} />
+  if (!entered) return <GlobeScreen onEnter={() => { sessionStorage.setItem('blis_entered', '1'); setEntered(true) }} />
 
   return (
     <>
