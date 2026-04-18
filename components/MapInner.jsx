@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { MUNICIPALITIES, INFRA, ASSETS, RECS, LAND_OPPS, BATAAN_OUTLINE, CORREGIDOR_ISLAND, SOVEREIGN_PROFILES, OMNIMESH_NODES } from '@/lib/data'
+import { MUNICIPALITIES, INFRA, ASSETS, RECS, LAND_OPPS, BATAAN_OUTLINE, CORREGIDOR, SOVEREIGN_PROFILES, OMNIMESH_NODES } from '@/lib/data'
 import { calcScore, landCompatScore, scoreColor, zonalColor, formatPHP } from '@/lib/scoring'
 
 const HAZARD_COLORS = {
@@ -78,9 +78,16 @@ export default function MapInner({
     L.polygon(BATAAN_OUTLINE, { color: 'rgba(0,180,255,.55)', weight: 1.8, fillColor: 'rgba(0,100,255,.04)', fillOpacity: 1, dashArray: '6,4' }).addTo(map)
       .bindTooltip('<span style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:.1em">PROVINCE OF BATAAN</span>', { className: 'mpop' })
 
-    // Corregidor Island
-    L.polygon(CORREGIDOR_ISLAND, { color: 'rgba(0,180,255,.45)', weight: 1.2, fillColor: 'rgba(0,100,180,.08)', fillOpacity: 1, dashArray: '4,3' }).addTo(map)
+    // Corregidor Island — circle outline (avoids coastline-tracing errors)
+    L.circle([CORREGIDOR.lat, CORREGIDOR.lng], {
+      radius: CORREGIDOR.radius, color: 'rgba(0,180,255,.40)', weight: 1.2,
+      fill: false, dashArray: '5,4',
+    }).addTo(map)
       .bindTooltip('<span style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:.1em">CORREGIDOR ISLAND</span>', { className: 'mpop' })
+    L.marker([CORREGIDOR.lat, CORREGIDOR.lng], {
+      icon: L.divIcon({ html:`<div style="font-family:Orbitron,monospace;font-size:7.5px;color:rgba(0,180,255,.7);text-shadow:0 0 6px rgba(0,180,255,.5),0 1px 3px #000;white-space:nowrap;letter-spacing:.07em;text-align:center">CORREGIDOR<br>ISLAND</div>`, className:'', iconSize:[90,22], iconAnchor:[45,11] }),
+      zIndexOffset: 50,
+    }).addTo(map)
 
     // Strategic context layer — SBFZ, FAB, Hermosa, Clark, airports, BCIB
     const strategicLayer = L.layerGroup()
