@@ -1,0 +1,55 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "zone": "Industrial", "municipality": "Mariveles", "description": "SBFZ Industrial Zone — duty-free import, heavy industrial use permitted, Forge optimal" },
+      "geometry": { "type": "Polygon", "coordinates": [[[120.455,14.435],[120.480,14.435],[120.480,14.455],[120.455,14.455],[120.455,14.435]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "zone": "Commercial", "municipality": "Mariveles", "description": "Mariveles CBD — mixed commercial use, HQ siting optimal, TESDA proximity" },
+      "geometry": { "type": "Polygon", "coordinates": [[[120.485,14.440],[120.505,14.440],[120.505,14.455],[120.485,14.455],[120.485,14.440]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "zone": "Commercial", "municipality": "Balanga City", "description": "Provincial Capital Commercial Zone — highest zonal values, maximum visibility, government center" },
+      "geometry": { "type": "Polygon", "coordinates": [[[120.520,14.665],[120.555,14.665],[120.555,14.695],[120.520,14.695],[120.520,14.665]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "zone": "Industrial", "municipality": "Limay", "description": "Limay Industrial Zone — NPC grid access, petrochem adjacent, 40% cheaper than Mariveles" },
+      "geometry": { "type": "Polygon", "coordinates": [[[120.580,14.535],[120.615,14.535],[120.615,14.565],[120.580,14.565],[120.580,14.535]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "zone": "Agricultural", "municipality": "Morong", "description": "Agricultural Zone — cheapest land in province ₱200–₱1,500/sqm, solar farm optimal, DAR conversion eligible" },
+      "geometry": { "type": "Polygon", "coordinates": [[[120.235,14.675],[120.285,14.675],[120.285,14.710],[120.235,14.710],[120.235,14.675]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "zone": "Agricultural", "municipality": "Bagac", "description": "Bagac Agricultural Zone — eco-tourism overlay permitted, open bay terrain, solar + Haven compatible" },
+      "geometry": { "type": "Polygon", "coordinates": [[[120.360,14.580],[120.400,14.580],[120.400,14.605],[120.360,14.605],[120.360,14.580]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "zone": "Protected", "municipality": "Morong", "description": "Bataan Natural Park — Strict No-Build Zone. DENR Protected Area. Development prohibited." },
+      "geometry": { "type": "Polygon", "coordinates": [[[120.245,14.640],[120.290,14.640],[120.290,14.675],[120.245,14.675],[120.245,14.640]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "zone": "Industrial", "municipality": "Hermosa", "description": "BCDA Economic Zone — income tax holiday 4–6 years, zero VAT on equipment imports, NLEX access" },
+      "geometry": { "type": "Polygon", "coordinates": [[[120.490,14.820],[120.525,14.820],[120.525,14.845],[120.490,14.845],[120.490,14.820]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "zone": "Commercial", "municipality": "Dinalupihan", "description": "Dinalupihan Technopark Commercial Zone — NLEX/SCTEX gateway, logistics hub, HQ visibility" },
+      "geometry": { "type": "Polygon", "coordinates": [[[120.450,14.865],[120.475,14.865],[120.475,14.890],[120.450,14.890],[120.450,14.865]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "zone": "Agricultural", "municipality": "Samal", "description": "Samal Agricultural Flats — flat terrain, solar optimal, Pampanga delta frontage, low cost" },
+      "geometry": { "type": "Polygon", "coordinates": [[[120.530,14.755],[120.570,14.755],[120.570,14.785],[120.530,14.785],[120.530,14.755]]] }
+    }
+  ]
+}

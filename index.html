@@ -1,0 +1,1852 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BLIS · Bataan Land Intelligence System · Firma Strategic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<style>
+:root {
+  --bg:      #040810;
+  --bg2:     #080f1e;
+  --bg3:     #0b1525;
+  --surface: rgba(10,20,45,0.93);
+  --glass:   rgba(15,30,65,0.78);
+  --border:  rgba(0,180,255,0.18);
+  --accent:  #00b4ff;
+  --green:   #00ff88;
+  --orange:  #ff6b35;
+  --gold:    #ffcc00;
+  --purple:  #9c44ff;
+  --danger:  #ff3355;
+  --text:    #ccd8e8;
+  --dim:     #4a6278;
+  --glow-b:  0 0 24px rgba(0,180,255,.35);
+  --glow-g:  0 0 24px rgba(0,255,136,.35);
+  --glow-o:  0 0 24px rgba(255,107,53,.35);
+  --glow-y:  0 0 24px rgba(255,204,0,.35);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100vw;height:100vh;overflow:hidden;background:var(--bg);color:var(--text);font-family:'Space Grotesk',sans-serif}
+
+/* ═══ GLOBE SCREEN ═══ */
+#globe-screen{position:fixed;inset:0;z-index:900;display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(ellipse 140% 120% at 50% 50%,#030c1f 0%,#010508 55%,#000 100%);
+  transition:opacity 1.2s ease,transform 1.4s ease;overflow:hidden}
+#globe-screen.exit{opacity:0;transform:scale(1.14) translateY(-8px);pointer-events:none}
+#star-canvas{position:absolute;inset:0;z-index:0}
+/* Hex grid overlay */
+.hex-grid{position:absolute;inset:0;z-index:1;pointer-events:none;
+  background-image:repeating-linear-gradient(60deg,rgba(0,100,180,.035) 0px,rgba(0,100,180,.035) 1px,transparent 1px,transparent 32px),
+                   repeating-linear-gradient(120deg,rgba(0,100,180,.035) 0px,rgba(0,100,180,.035) 1px,transparent 1px,transparent 32px),
+                   repeating-linear-gradient(0deg,rgba(0,100,180,.025) 0px,rgba(0,100,180,.025) 1px,transparent 1px,transparent 32px)}
+.scanlines{position:absolute;inset:0;z-index:2;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.10) 2px,rgba(0,0,0,.10) 4px)}
+.sweep{position:absolute;left:0;right:0;height:3px;z-index:3;pointer-events:none;
+  background:linear-gradient(90deg,transparent,rgba(0,200,255,.35),rgba(0,255,200,.15),transparent);
+  filter:blur(1px);animation:sweep 7s linear infinite}
+@keyframes sweep{from{top:0;opacity:.7}80%{opacity:.2}to{top:100%;opacity:0}}
+
+/* Corner brackets */
+.corner{position:absolute;width:56px;height:56px;z-index:10;pointer-events:none}
+.corner::before,.corner::after{content:'';position:absolute;background:rgba(0,180,255,.65)}
+.corner::before{width:2px;height:28px}
+.corner::after{width:28px;height:2px}
+.c-tl{top:22px;left:22px}.c-tl::before{top:0;left:0}.c-tl::after{top:0;left:0}
+.c-tr{top:22px;right:22px}.c-tr::before{top:0;right:0}.c-tr::after{top:0;right:0}
+.c-bl{bottom:52px;left:22px}.c-bl::before{bottom:0;left:0}.c-bl::after{bottom:0;left:0}
+.c-br{bottom:52px;right:22px}.c-br::before{bottom:0;right:0}.c-br::after{bottom:0;right:0}
+
+/* Globe wrapper */
+.globe-wrap{position:absolute;left:calc(50% - 450px);top:50%;transform:translateY(-52%);z-index:5;width:400px;height:400px}
+/* Atmosphere layers */
+.atmo-outer{position:absolute;inset:-72px;border-radius:50%;
+  background:radial-gradient(circle,transparent 50%,rgba(0,50,180,.04) 60%,rgba(0,120,255,.11) 72%,rgba(0,80,200,.06) 82%,transparent 92%);
+  animation:atmoBreath 5.5s ease-in-out infinite alternate}
+.atmo-inner{position:absolute;inset:-26px;border-radius:50%;
+  background:radial-gradient(circle,transparent 52%,rgba(0,160,255,.09) 66%,rgba(0,210,255,.18) 75%,rgba(0,100,200,.07) 84%,transparent 91%);
+  animation:atmoBreath 3.8s ease-in-out 1.2s infinite alternate}
+@keyframes atmoBreath{from{opacity:.45;transform:scale(.96)}to{opacity:1;transform:scale(1.04)}}
+/* Globe */
+.globe{position:absolute;inset:0;border-radius:50%;overflow:hidden;
+  background:
+    radial-gradient(circle at 28% 28%,rgba(55,130,255,.5) 0%,transparent 44%),
+    radial-gradient(circle at 74% 72%,rgba(2,5,30,.98) 0%,transparent 48%),
+    radial-gradient(circle at 50% 0%,rgba(0,70,180,.18) 0%,transparent 38%),
+    radial-gradient(circle at 50% 50%,#0e224a 0%,#060e28 50%,#020810 100%);
+  box-shadow:0 0 70px rgba(0,80,230,.28),0 0 140px rgba(0,40,170,.14),0 0 240px rgba(0,20,110,.07),
+             inset -34px -34px 100px rgba(0,0,65,.78),inset 12px 12px 44px rgba(18,78,225,.20),inset -6px -6px 22px rgba(0,0,45,.5)}
+.globe-shine{position:absolute;inset:0;border-radius:50%;
+  background:radial-gradient(ellipse 58% 42% at 34% 28%,rgba(255,255,255,.08) 0%,transparent 58%);pointer-events:none}
+.globe-night{position:absolute;inset:0;border-radius:50%;overflow:hidden;
+  background:radial-gradient(ellipse 52% 72% at 74% 66%,rgba(0,8,55,.62) 0%,transparent 52%);pointer-events:none}
+.globe-grid{position:absolute;inset:0;border-radius:50%;overflow:hidden;
+  background-image:repeating-linear-gradient(0deg,transparent 0%,transparent calc(12.5% - .5px),rgba(0,155,255,.09) calc(12.5% - .5px),rgba(0,155,255,.09) 12.5%),
+                   repeating-linear-gradient(90deg,transparent 0%,transparent calc(12.5% - .5px),rgba(0,155,255,.07) calc(12.5% - .5px),rgba(0,155,255,.07) 12.5%)}
+.land{position:absolute;border-radius:60% 40% 50% 70%;filter:blur(2.5px);animation:landDrift 22s ease-in-out infinite alternate}
+@keyframes landDrift{from{opacity:.55;transform:var(--lr) translateX(0)}to{opacity:.85;transform:var(--lr) translateX(4px)}}
+/* Orbital rings */
+.orbit{position:absolute;border-radius:50%;pointer-events:none}
+.orbit-1{inset:-24px;border:1px solid transparent;border-top:1.5px solid rgba(0,190,255,.6);border-bottom:1px solid rgba(0,180,255,.07);transform:rotateX(72deg) rotateZ(0deg);animation:orb1 9s linear infinite;filter:drop-shadow(0 0 4px rgba(0,190,255,.45))}
+.orbit-2{inset:-46px;border:1px solid transparent;border-right:1px solid rgba(0,210,255,.38);border-left:1px solid rgba(0,180,255,.06);transform:rotateX(72deg) rotateZ(55deg);animation:orb2 16s linear infinite reverse;filter:drop-shadow(0 0 2px rgba(0,210,255,.28))}
+.orbit-3{inset:-64px;border:1px solid transparent;border-top:1px solid rgba(120,190,255,.18);border-bottom:1px solid rgba(100,170,255,.04);transform:rotateX(68deg) rotateZ(122deg);animation:orb3 24s linear infinite}
+.orb-sat{position:absolute;width:6px;height:6px;border-radius:50%;background:var(--accent);box-shadow:0 0 10px var(--accent),0 0 20px rgba(0,180,255,.4);top:-3px;left:calc(50% - 3px)}
+@keyframes orb1{from{transform:rotateX(72deg) rotateZ(0)}to{transform:rotateX(72deg) rotateZ(360deg)}}
+@keyframes orb2{from{transform:rotateX(72deg) rotateZ(55deg)}to{transform:rotateX(72deg) rotateZ(415deg)}}
+@keyframes orb3{from{transform:rotateX(68deg) rotateZ(122deg)}to{transform:rotateX(68deg) rotateZ(482deg)}}
+/* Philippines marker */
+.ph-marker{position:absolute;top:52%;left:63%;z-index:3}
+.ph-dot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 14px var(--green),0 0 30px rgba(0,255,136,.55);animation:phPulse 2.4s ease-in-out infinite}
+.ph-ring,.ph-ring2,.ph-ring3{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);border-radius:50%;border:1px solid rgba(0,255,136,.55)}
+.ph-ring{width:26px;height:26px;animation:phRing 2.4s ease-out infinite}
+.ph-ring2{width:46px;height:46px;border-color:rgba(0,255,136,.28);animation:phRing 2.4s ease-out .75s infinite}
+.ph-ring3{width:66px;height:66px;border-color:rgba(0,255,136,.12);animation:phRing 2.4s ease-out 1.5s infinite}
+.ph-label{position:absolute;top:-22px;left:50%;transform:translateX(-50%);font-family:'Orbitron',monospace;font-size:7px;color:var(--green);letter-spacing:.18em;white-space:nowrap;text-shadow:0 0 10px var(--green)}
+@keyframes phPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.55);opacity:.65}}
+@keyframes phRing{0%{transform:translate(-50%,-50%) scale(.35);opacity:.9}100%{transform:translate(-50%,-50%) scale(1.7);opacity:0}}
+
+/* Left HUD column */
+.hud-left{position:absolute;left:calc(50% - 600px);top:50%;transform:translateY(-50%);z-index:5;width:110px;display:flex;flex-direction:column;gap:14px}
+.hud-item{font-family:'Orbitron',monospace;border-left:1px solid rgba(0,180,255,.28);padding:0 0 0 10px}
+.hud-val{font-size:12px;font-weight:700;color:var(--accent);display:block;margin-bottom:1px;letter-spacing:.05em}
+.hud-lbl{font-size:6.5px;letter-spacing:.13em;color:var(--dim);opacity:.8;display:block}
+
+/* Bottom ticker */
+.ticker-wrap{position:absolute;bottom:0;left:0;right:0;height:32px;z-index:10;background:rgba(0,0,0,.55);border-top:1px solid rgba(0,180,255,.13);display:flex;align-items:center;overflow:hidden}
+.ticker-label{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:.16em;color:var(--accent);padding:0 16px 0 20px;white-space:nowrap;border-right:1px solid rgba(0,180,255,.2);flex-shrink:0;display:flex;align-items:center;gap:6px}
+.ticker-label::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--green);box-shadow:0 0 6px var(--green);animation:blink 1.8s infinite;flex-shrink:0}
+.ticker-track{flex:1;overflow:hidden;white-space:nowrap;mask-image:linear-gradient(90deg,transparent,black 50px,black calc(100% - 50px),transparent)}
+.ticker-inner{display:inline-block;animation:tick 40s linear infinite}
+.ticker-inner span{font-size:9px;color:rgba(180,200,220,.65);letter-spacing:.05em;padding:0 28px}
+.ticker-inner span b{color:var(--text)}
+@keyframes tick{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+/* Intro panel */
+.intro-panel{position:absolute;right:calc(50% - 590px);top:50%;transform:translateY(-50%);z-index:5;width:430px}
+.firma-badge{font-family:'Orbitron',monospace;font-size:8.5px;letter-spacing:.22em;color:var(--accent);margin-bottom:22px;display:flex;align-items:center;gap:10px;opacity:.9}
+.firma-badge::before{content:'';width:20px;height:1px;background:var(--accent);flex-shrink:0}
+.firma-badge::after{content:'';flex:1;height:1px;background:linear-gradient(90deg,rgba(0,180,255,.5),transparent)}
+.main-title{font-family:'Orbitron',monospace;font-weight:900;line-height:1.06;margin-bottom:16px;font-size:clamp(26px,3.8vw,44px);
+  background:linear-gradient(140deg,#ffffff 0%,rgba(180,225,255,1) 38%,rgba(0,180,255,.95) 78%,rgba(0,120,220,.8) 100%);
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;
+  filter:drop-shadow(0 0 28px rgba(0,180,255,.32)) drop-shadow(0 2px 4px rgba(0,0,0,.5))}
+.title-sub{font-size:10px;color:var(--dim);letter-spacing:.10em;margin-bottom:28px;line-height:1.75;border-left:1px solid rgba(0,180,255,.3);padding-left:12px}
+/* Stats */
+.sys-stats{display:flex;gap:0;margin-bottom:28px;background:rgba(0,0,0,.38);border:1px solid rgba(0,180,255,.14);border-radius:5px;overflow:hidden}
+.stat{flex:1;padding:14px 8px;text-align:center;border-right:1px solid rgba(0,180,255,.12);position:relative}
+.stat:last-child{border-right:none}
+.stat::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--sc,var(--accent));opacity:.45}
+.sv{font-family:'Orbitron',monospace;font-size:22px;font-weight:900;color:var(--sc,var(--accent));line-height:1;display:block}
+.sl{font-size:7.5px;color:var(--dim);letter-spacing:.09em;margin-top:5px;display:block}
+/* Asset badges */
+.asset-badges{display:flex;gap:6px;margin-bottom:24px;flex-wrap:wrap}
+.abadge{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:.06em;padding:5px 10px;border:1px solid rgba(0,180,255,.16);border-radius:3px;color:rgba(180,200,220,.7);display:flex;align-items:center;gap:5px;background:rgba(0,0,0,.32);transition:.2s}
+.abadge .bi{font-size:12px}
+/* Status row */
+.status-row{display:flex;align-items:center;gap:10px;margin-bottom:24px;font-family:'Orbitron',monospace;font-size:8px;letter-spacing:.10em}
+.status-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 8px var(--green);animation:blink 2s infinite;flex-shrink:0}
+.status-txt{color:var(--green)}
+.status-sep{color:var(--border)}
+/* Enter button */
+#enter-btn{display:flex;align-items:center;justify-content:center;gap:14px;width:100%;
+  background:linear-gradient(135deg,rgba(0,90,220,.38) 0%,rgba(0,55,190,.28) 50%,rgba(0,32,130,.32) 100%);
+  border:1px solid rgba(0,180,255,.48);border-radius:5px;padding:17px 32px;cursor:pointer;transition:.35s;
+  font-family:'Orbitron',monospace;font-size:12px;font-weight:900;letter-spacing:.24em;color:#fff;
+  box-shadow:0 0 44px rgba(0,180,255,.18),inset 0 1px 0 rgba(255,255,255,.08),inset 0 -1px 0 rgba(0,0,0,.2);
+  position:relative;overflow:hidden}
+#enter-btn::before{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent 0%,rgba(0,190,255,.14) 50%,transparent 100%);transform:translateX(-100%);transition:transform .65s}
+#enter-btn::after{content:'';position:absolute;bottom:0;left:20%;right:20%;height:1px;background:linear-gradient(90deg,transparent,rgba(0,200,255,.9),transparent);animation:btnScan 2.8s ease-in-out infinite}
+@keyframes btnScan{0%{opacity:0;left:20%;right:80%}50%{opacity:1}100%{opacity:0;left:80%;right:20%}}
+#enter-btn:hover{border-color:rgba(0,200,255,.85);box-shadow:0 0 70px rgba(0,180,255,.38),var(--glow-b);transform:translateY(-2px)}
+#enter-btn:hover::before{transform:translateX(100%)}
+.btn-arrow{font-size:16px;transition:.35s}
+#enter-btn:hover .btn-arrow{transform:translateX(6px);text-shadow:0 0 12px var(--accent)}
+.enter-hint{font-size:9px;color:var(--dim);margin-top:10px;letter-spacing:.07em;text-align:center;opacity:.7}
+
+/* ═══ MAIN INTERFACE ═══ */
+#main-interface{display:none;position:fixed;inset:0;flex-direction:column;background:var(--bg)}
+#main-interface.visible{display:flex}
+
+/* Topbar */
+#topbar{height:46px;background:var(--surface);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:14px;flex-shrink:0;backdrop-filter:blur(12px);z-index:100;box-shadow:0 1px 20px rgba(0,0,0,.5)}
+.tb-logo{font-family:'Orbitron',monospace;font-size:14px;font-weight:900;display:flex;align-items:center;gap:5px}
+.lf{color:var(--accent)}.ls{color:var(--dim)}.lb{color:#fff}
+.tb-title{font-size:10px;color:var(--dim);letter-spacing:.07em;border-left:1px solid var(--border);padding-left:12px;white-space:nowrap}
+.tbsp{flex:1}
+.coords{font-family:'Orbitron',monospace;font-size:10px;color:var(--green);display:flex;gap:8px;align-items:center}
+.cl{color:var(--dim);font-size:8px;letter-spacing:.1em}
+.tb-btn{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:.1em;background:rgba(0,180,255,.07);border:1px solid var(--border);border-radius:3px;color:var(--accent);padding:5px 10px;cursor:pointer;transition:.2s;white-space:nowrap}
+.tb-btn:hover{background:rgba(0,180,255,.18);border-color:var(--accent)}
+.tb-btn.on{background:rgba(0,180,255,.22);border-color:rgba(0,180,255,.6);color:#fff}
+.sdots{display:flex;gap:4px;align-items:center;margin-left:4px}
+.sdot{width:5px;height:5px;border-radius:50%;background:var(--dim)}
+.sdot.live{background:var(--green);box-shadow:0 0 6px var(--green);animation:blink 2s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Body */
+#body-wrap{display:flex;flex:1;overflow:hidden}
+
+/* Sidebar */
+#sidebar{width:308px;flex-shrink:0;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;backdrop-filter:blur(12px);z-index:50;overflow:hidden}
+.tab-bar{display:flex;border-bottom:1px solid var(--border);flex-shrink:0}
+.tab-btn{flex:1;padding:10px 4px;background:transparent;border:none;border-bottom:2px solid transparent;font-family:'Orbitron',monospace;font-size:8px;letter-spacing:.1em;color:var(--dim);cursor:pointer;transition:.2s}
+.tab-btn:hover{color:var(--text);background:rgba(0,180,255,.04)}
+.tab-btn.on{color:var(--accent);border-bottom-color:var(--accent)}
+.tc{display:none;flex:1;overflow-y:auto;padding:12px;flex-direction:column;gap:10px}
+.tc.on{display:flex}
+.tc::-webkit-scrollbar{width:3px}
+.tc::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px}
+.shd{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:.18em;color:var(--dim);padding:7px 0 5px;border-bottom:1px solid rgba(255,255,255,.05);display:flex;align-items:center;gap:7px}
+.shd::before{content:'';width:10px;height:1px;background:var(--accent);flex-shrink:0}
+
+/* Asset selector */
+.asset-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.a-tile{background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:4px;padding:9px 7px;cursor:pointer;transition:.25s;text-align:center}
+.a-tile:hover{border-color:rgba(0,180,255,.5);background:rgba(0,180,255,.07)}
+.a-tile.sel{border-color:var(--tc,var(--accent));background:rgba(0,0,0,.6);box-shadow:0 0 14px var(--tc,rgba(0,180,255,.3))}
+.a-tile-icon{font-size:20px;display:block;margin-bottom:5px}
+.a-tile-name{font-family:'Orbitron',monospace;font-size:7.5px;letter-spacing:.06em;color:var(--text);line-height:1.3}
+.a-tile-sub{font-size:8px;margin-top:2px;opacity:.7}
+
+/* Layers */
+.lrow{display:flex;align-items:center;gap:9px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.04);cursor:pointer}
+.lrow:hover{background:rgba(0,180,255,.04);margin:0 -12px;padding:6px 12px}
+.tsw{width:28px;height:15px;background:rgba(0,0,0,.5);border:1px solid var(--border);border-radius:8px;position:relative;flex-shrink:0;transition:.2s}
+.tsw.on{background:rgba(0,180,255,.22);border-color:var(--accent)}
+.tth{width:9px;height:9px;border-radius:50%;background:var(--dim);position:absolute;top:2px;left:2px;transition:.2s}
+.tsw.on .tth{left:15px;background:var(--accent);box-shadow:0 0 5px var(--accent)}
+.lname{font-size:10px;color:var(--text);flex:1}
+.ldot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+/* Legend */
+.leg-bar{height:10px;border-radius:3px;background:linear-gradient(90deg,#00ff88,#88ff44,#ffcc00,#ff6b35,#ff3355);margin:5px 0}
+.leg-lbl{display:flex;justify-content:space-between;font-size:9px;color:var(--dim)}
+.sband{display:flex;align-items:center;gap:7px;padding:3px 0;font-size:9px}
+.ssw{width:11px;height:11px;border-radius:2px;flex-shrink:0}
+
+/* Pins */
+.pin-card{background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:5px;padding:11px;margin-bottom:7px;cursor:pointer;transition:.2s}
+.pin-card:hover{border-color:rgba(0,180,255,.4)}
+.pch{display:flex;align-items:center;gap:7px;margin-bottom:7px}
+.pci{font-size:16px}
+.pcn{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;flex:1;line-height:1.3}
+.pcs{font-family:'Orbitron',monospace;font-size:15px;font-weight:900;min-width:38px;text-align:right}
+.psb{height:2px;border-radius:1px;background:rgba(255,255,255,.07);margin-bottom:7px}
+.psf{height:100%;border-radius:1px;transition:.6s}
+.pcomps{display:grid;grid-template-columns:1fr 1fr;gap:3px}
+.cr{display:flex;justify-content:space-between;font-size:8px}
+.ck{color:var(--dim)}.cv{font-family:'Orbitron',monospace;font-size:8px}
+.pcoord{font-size:8px;color:var(--dim);margin-top:5px;font-family:monospace}
+.pdel{font-size:9px;color:var(--danger);cursor:pointer;padding:0 3px;opacity:.5;transition:.2s}
+.pdel:hover{opacity:1}
+.no-pins{text-align:center;color:var(--dim);font-size:11px;line-height:1.9;padding:28px 8px}
+
+/* ══ RECS TAB ══ */
+.rec-asset-tabs{display:flex;gap:5px;flex-wrap:wrap;margin-bottom:2px}
+.rat{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:.08em;padding:5px 8px;border:1px solid var(--border);border-radius:3px;cursor:pointer;transition:.2s;background:transparent;color:var(--dim)}
+.rat:hover{color:var(--text);border-color:rgba(0,180,255,.4)}
+.rat.on{color:#fff;border-color:var(--rc,var(--accent));background:rgba(0,0,0,.4);box-shadow:0 0 10px var(--rc,rgba(0,180,255,.2))}
+.rec-card{background:rgba(0,0,0,.35);border:1px solid var(--border);border-radius:5px;padding:11px;margin-bottom:7px;position:relative;overflow:hidden;transition:.2s}
+.rec-card:hover{border-color:rgba(0,180,255,.4);background:rgba(0,180,255,.04)}
+.rec-rank{position:absolute;top:6px;right:8px;font-family:'Orbitron',monospace;font-size:28px;font-weight:900;opacity:.1;line-height:1;color:#fff}
+.rec-header{display:flex;align-items:center;gap:8px;margin-bottom:7px}
+.rec-icon{font-size:18px}
+.rec-name{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;flex:1;line-height:1.4}
+.rec-score{font-family:'Orbitron',monospace;font-size:17px;font-weight:900}
+.rec-muni{font-size:9px;color:var(--dim);margin-bottom:6px}
+.rec-note{font-size:9px;color:var(--text);line-height:1.5;margin-bottom:9px;opacity:.8}
+.rec-land{display:flex;justify-content:space-between;font-size:9px;padding:5px 8px;background:rgba(0,0,0,.3);border-radius:3px;margin-bottom:7px}
+.rl-key{color:var(--dim)}.rl-val{font-family:'Orbitron',monospace;color:var(--text)}
+.rec-btns{display:flex;gap:5px}
+.rbtn{flex:1;font-family:'Orbitron',monospace;font-size:8px;letter-spacing:.08em;padding:6px 4px;border:1px solid var(--border);border-radius:3px;cursor:pointer;background:transparent;color:var(--text);transition:.2s;text-align:center}
+.rbtn:hover{background:rgba(0,180,255,.12);border-color:var(--accent);color:var(--accent)}
+.rbtn.primary{background:rgba(0,180,255,.15);border-color:rgba(0,180,255,.4);color:var(--accent)}
+.rbtn.primary:hover{background:rgba(0,180,255,.25)}
+
+/* Data tab */
+.muni-card{background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:4px;padding:9px;margin-bottom:5px;cursor:pointer;transition:.2s}
+.muni-card:hover{border-color:rgba(0,180,255,.4);background:rgba(0,180,255,.04)}
+.mn{font-family:'Orbitron',monospace;font-size:9px;color:var(--text);margin-bottom:3px}
+.mm{display:flex;justify-content:space-between;font-size:8px;color:var(--dim)}
+.mz{font-family:'Orbitron',monospace;font-size:9px}
+.ds{font-size:8px;color:var(--dim);padding:7px 0;border-top:1px solid var(--border);line-height:1.7}
+
+/* ═══ MAP ═══ */
+#map-wrap{flex:1;position:relative}
+#map{width:100%;height:100%}
+.leaflet-container{background:#040810!important}
+.mpop .leaflet-popup-content-wrapper{background:rgba(8,18,38,.96);border:1px solid var(--border);border-radius:6px;color:var(--text);backdrop-filter:blur(12px);box-shadow:0 0 30px rgba(0,0,0,.8)}
+.mpop .leaflet-popup-tip{background:rgba(8,18,38,.96)}
+.mpop .leaflet-popup-content{margin:13px 16px;font-family:'Space Grotesk',sans-serif}
+.pt{font-family:'Orbitron',monospace;font-size:12px;font-weight:700;color:var(--accent);margin-bottom:9px}
+.pr{display:flex;justify-content:space-between;font-size:10px;padding:3px 0;border-bottom:1px solid rgba(255,255,255,.05);gap:18px}
+.pk{color:var(--dim)}.pv{color:var(--text);font-weight:500}
+
+/* Toolbar */
+#toolbar{height:70px;background:var(--surface);border-top:1px solid var(--border);display:flex;align-items:center;padding:0 16px;gap:10px;flex-shrink:0;backdrop-filter:blur(12px);z-index:100;box-shadow:0 -1px 20px rgba(0,0,0,.5)}
+.tool-lbl{font-family:'Orbitron',monospace;font-size:8px;letter-spacing:.14em;color:var(--dim);white-space:nowrap;line-height:1.6}
+.tsep{width:1px;height:40px;background:var(--border);flex-shrink:0}
+.tool-assets{display:flex;gap:7px;flex:1}
+.tab-btn2{display:flex;flex-direction:column;align-items:center;gap:2px;background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:5px;padding:7px 14px;cursor:pointer;transition:.25s;min-width:84px;position:relative;overflow:hidden}
+.tab-btn2::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:var(--bc,var(--accent));opacity:0;transition:.25s}
+.tab-btn2:hover{border-color:var(--bc,var(--accent));background:rgba(0,0,0,.6)}
+.tab-btn2:hover::after,.tab-btn2.on::after{opacity:1}
+.tab-btn2.on{border-color:var(--bc,var(--accent));background:rgba(0,0,0,.6);box-shadow:0 0 14px rgba(0,0,0,.3)}
+.ti2{font-size:18px}.tn2{font-family:'Orbitron',monospace;font-size:7px;letter-spacing:.07em;color:var(--text);text-align:center}
+.tool-hint-wrap{text-align:right;flex:1}
+.tool-hint{font-size:11px;color:var(--dim)}
+.score-big{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:.1em;color:var(--dim)}
+.score-num{font-family:'Orbitron',monospace;font-size:26px;font-weight:900}
+
+/* Asset markers */
+.amark{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px;border:2px solid currentColor;box-shadow:0 0 14px currentColor;position:relative;cursor:pointer;animation:mdrop .4s cubic-bezier(.34,1.56,.64,1)}
+.amark.rec-marker{width:38px;height:38px;font-size:16px;opacity:.85}
+@keyframes mdrop{from{transform:scale(0) translateY(-20px);opacity:0}to{transform:scale(1) translateY(0);opacity:1}}
+.score-badge{position:absolute;top:-10px;right:-10px;font-family:'Orbitron',monospace;font-size:8px;font-weight:700;background:rgba(0,0,0,.88);border:1px solid currentColor;border-radius:3px;padding:2px 4px;box-shadow:0 0 7px currentColor}
+.rec-badge{position:absolute;top:-10px;left:-10px;font-family:'Orbitron',monospace;font-size:7px;background:rgba(0,0,0,.88);border:1px solid rgba(255,204,0,.6);border-radius:3px;padding:2px 4px;color:var(--gold)}
+
+/* Infrastructure */
+.infra-ic{background:rgba(0,0,0,.75);border:1px solid rgba(255,255,255,.12);border-radius:4px;padding:3px 6px;font-size:11px;display:flex;align-items:center;gap:4px;white-space:nowrap;backdrop-filter:blur(8px)}
+.infra-lb{font-family:'Orbitron',monospace;font-size:7.5px;letter-spacing:.05em;color:var(--text)}
+
+/* ═══ LAND CALCULATOR MODAL ═══ */
+#modal-overlay{position:fixed;inset:0;z-index:800;background:rgba(0,0,0,.72);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;opacity:0;pointer-events:none;transition:.3s}
+#modal-overlay.open{opacity:1;pointer-events:all}
+.modal-box{background:linear-gradient(135deg,#0b1525,#080f1e);border:1px solid var(--border);border-radius:10px;width:520px;max-width:96vw;max-height:90vh;overflow-y:auto;box-shadow:0 0 80px rgba(0,0,0,.9),var(--glow-b);animation:mopen .35s cubic-bezier(.34,1.3,.64,1)}
+@keyframes mopen{from{transform:scale(.9) translateY(20px)}to{transform:scale(1) translateY(0)}}
+.modal-box::-webkit-scrollbar{width:3px}
+.modal-box::-webkit-scrollbar-thumb{background:var(--border)}
+.mhdr{display:flex;align-items:center;gap:12px;padding:18px 20px 14px;border-bottom:1px solid var(--border)}
+.mhdr-icon{font-size:28px}
+.mhdr-title{flex:1}
+.mhdr-asset{font-family:'Orbitron',monospace;font-size:13px;font-weight:900;line-height:1.2}
+.mhdr-loc{font-size:11px;color:var(--dim);margin-top:3px}
+.mclose{font-size:18px;color:var(--dim);cursor:pointer;padding:4px 8px;border-radius:3px;transition:.2s;background:transparent;border:none;color:var(--dim)}
+.mclose:hover{color:var(--danger);background:rgba(255,51,85,.1)}
+.mbody{padding:18px 20px}
+.scale-selector{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:18px}
+.scale-opt{border:1px solid var(--border);border-radius:5px;padding:12px 8px;text-align:center;cursor:pointer;transition:.25s}
+.scale-opt:hover{border-color:rgba(0,180,255,.4);background:rgba(0,180,255,.07)}
+.scale-opt.sel{border-color:var(--mc,var(--accent));background:rgba(0,0,0,.5);box-shadow:0 0 14px var(--mc,rgba(0,180,255,.25))}
+.so-size{font-family:'Orbitron',monospace;font-size:16px;font-weight:700;margin-bottom:4px}
+.so-label{font-size:9px;color:var(--dim)}
+.so-units{font-size:10px;color:var(--text);margin-top:4px}
+.calc-section{margin-bottom:16px}
+.cs-title{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:.15em;color:var(--dim);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.cs-title::before{content:'';width:12px;height:1px;background:var(--accent)}
+.calc-row{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;margin-bottom:3px;background:rgba(0,0,0,.25);border-radius:4px;border-left:2px solid transparent}
+.calc-row.highlight{border-left-color:var(--mc,var(--accent))}
+.cr-key{font-size:10px;color:var(--dim)}
+.cr-val{font-family:'Orbitron',monospace;font-size:11px;font-weight:600;color:var(--text)}
+.total-box{background:linear-gradient(135deg,rgba(0,0,0,.5),rgba(0,30,80,.3));border:1px solid rgba(0,180,255,.3);border-radius:6px;padding:14px 16px;margin:14px 0;display:flex;justify-content:space-between;align-items:center}
+.total-label{font-family:'Orbitron',monospace;font-size:10px;letter-spacing:.12em;color:var(--dim)}
+.total-val{font-family:'Orbitron',monospace;font-size:20px;font-weight:900;color:var(--mc,var(--accent))}
+.roi-box{background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.2);border-radius:5px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}
+.roi-label{font-size:10px;color:var(--green)}
+.roi-val{font-family:'Orbitron',monospace;font-size:16px;font-weight:700;color:var(--green)}
+.revenue-note{font-size:9px;color:var(--dim);margin-top:4px;line-height:1.5;padding:0 2px}
+.mfooter{display:flex;gap:8px;padding:0 20px 18px}
+.mfbtn{flex:1;font-family:'Orbitron',monospace;font-size:9px;letter-spacing:.1em;padding:12px;border-radius:4px;cursor:pointer;transition:.3s;border:none;font-weight:700}
+.mfbtn.primary{background:linear-gradient(135deg,rgba(0,100,220,.5),rgba(0,60,180,.4));border:1px solid rgba(0,180,255,.4);color:#fff;box-shadow:0 0 20px rgba(0,180,255,.2)}
+.mfbtn.primary:hover{box-shadow:var(--glow-b)}
+.mfbtn.secondary{background:rgba(0,0,0,.3);border:1px solid var(--border);color:var(--dim)}
+.mfbtn.secondary:hover{color:var(--text);border-color:rgba(0,180,255,.3)}
+
+/* ═══ LAND TAB ═══ */
+.auto-scan-box{background:linear-gradient(135deg,rgba(0,0,0,.5),rgba(0,20,50,.4));border:1px solid rgba(255,204,0,.25);border-radius:7px;padding:14px;margin-bottom:4px}
+.as-title{font-family:'Orbitron',monospace;font-size:11px;font-weight:700;color:var(--gold);margin-bottom:3px;display:flex;align-items:center;gap:7px}
+.as-title::before{content:'⬡';font-size:14px}
+.as-sub{font-size:9px;color:var(--dim);line-height:1.5;margin-bottom:12px}
+#auto-scan-btn{width:100%;font-family:'Orbitron',monospace;font-size:10px;font-weight:700;letter-spacing:.12em;padding:11px;border-radius:4px;cursor:pointer;transition:.3s;background:linear-gradient(135deg,rgba(255,204,0,.2),rgba(255,150,0,.1));border:1px solid rgba(255,204,0,.4);color:var(--gold);display:flex;align-items:center;justify-content:center;gap:8px}
+#auto-scan-btn:hover{background:linear-gradient(135deg,rgba(255,204,0,.3),rgba(255,150,0,.2));border-color:rgba(255,204,0,.7);box-shadow:var(--glow-y)}
+#auto-scan-btn.scanning{opacity:.6;cursor:not-allowed;animation:scanpulse .7s ease-in-out infinite alternate}
+#auto-scan-btn.done{background:linear-gradient(135deg,rgba(0,255,136,.15),rgba(0,200,100,.08));border-color:rgba(0,255,136,.4);color:var(--green)}
+@keyframes scanpulse{from{opacity:.5;box-shadow:none}to{opacity:1;box-shadow:0 0 20px rgba(255,204,0,.3)}}
+.scan-status{font-size:9px;color:var(--dim);margin-top:8px;text-align:center;min-height:14px;transition:.3s}
+.scan-status.active{color:var(--gold);animation:stpulse 1s ease-in-out infinite alternate}
+@keyframes stpulse{from{opacity:.5}to{opacity:1}}
+
+/* Land filters */
+.land-filters{display:flex;flex-direction:column;gap:6px;margin-bottom:2px}
+.filter-row{display:flex;align-items:center;gap:8px}
+.filter-label{font-family:'Orbitron',monospace;font-size:7px;letter-spacing:.14em;color:var(--dim);min-width:38px}
+.fpills{display:flex;gap:4px;flex-wrap:wrap;flex:1}
+.fpill{font-family:'Orbitron',monospace;font-size:7.5px;letter-spacing:.06em;padding:3px 7px;border:1px solid var(--border);border-radius:3px;cursor:pointer;transition:.2s;color:var(--dim);background:transparent}
+.fpill:hover{border-color:rgba(255,204,0,.4);color:var(--text)}
+.fpill.on{border-color:var(--gold);background:rgba(255,204,0,.12);color:var(--gold)}
+.fsel{background:rgba(0,0,0,.4);border:1px solid var(--border);border-radius:3px;color:var(--text);padding:4px 8px;font-family:'Space Grotesk',sans-serif;font-size:9px;flex:1;outline:none;cursor:pointer}
+.fsel option{background:#0b1525}
+
+/* Land cards */
+.land-card{background:rgba(0,0,0,.35);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:7px;transition:.25s;position:relative;overflow:hidden}
+.land-card:hover{border-color:rgba(255,204,0,.35);background:rgba(255,204,0,.03)}
+.land-card.top-match{border-color:rgba(255,204,0,.5);background:rgba(255,204,0,.04);box-shadow:0 0 18px rgba(255,204,0,.1)}
+.land-card.top-match::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent)}
+.lc-header{display:flex;align-items:flex-start;gap:8px;margin-bottom:7px}
+.lc-urgency{font-family:'Orbitron',monospace;font-size:7px;letter-spacing:.1em;padding:3px 6px;border-radius:2px;flex-shrink:0;margin-top:1px}
+.urg-high{background:rgba(255,51,85,.15);border:1px solid rgba(255,51,85,.4);color:#ff3355}
+.urg-med{background:rgba(255,107,53,.12);border:1px solid rgba(255,107,53,.35);color:#ff6b35}
+.urg-low{background:rgba(74,98,120,.15);border:1px solid rgba(74,98,120,.3);color:var(--dim)}
+.lc-name{font-family:'Orbitron',monospace;font-size:9px;font-weight:700;color:var(--text);line-height:1.35;flex:1}
+.lc-tag{font-family:'Orbitron',monospace;font-size:7px;padding:2px 5px;background:rgba(255,204,0,.1);border:1px solid rgba(255,204,0,.3);border-radius:2px;color:var(--gold);white-space:nowrap;flex-shrink:0}
+.lc-meta{display:flex;gap:6px;align-items:center;margin-bottom:7px;flex-wrap:wrap}
+.lc-muni{font-size:9px;color:var(--dim)}
+.lc-class{font-size:8px;padding:2px 5px;border-radius:2px;background:rgba(0,180,255,.08);border:1px solid rgba(0,180,255,.2);color:var(--accent)}
+.lc-price{font-family:'Orbitron',monospace;font-size:9px;color:var(--gold);margin-left:auto}
+.lc-why{font-size:9px;color:var(--text);line-height:1.55;opacity:.85;margin-bottom:8px;border-left:2px solid rgba(255,204,0,.25);padding-left:7px}
+.lc-why.collapsed{max-height:42px;overflow:hidden;position:relative}
+.lc-why.collapsed::after{content:'';position:absolute;bottom:0;left:0;right:0;height:20px;background:linear-gradient(transparent,rgba(4,8,16,.95))}
+.lc-infra{display:grid;grid-template-columns:1fr 1fr;gap:3px;margin-bottom:8px}
+.li-row{display:flex;justify-content:space-between;align-items:center;font-size:8px}
+.li-label{color:var(--dim)}
+.li-bar{flex:1;height:3px;background:rgba(255,255,255,.07);border-radius:2px;margin:0 6px;overflow:hidden}
+.li-fill{height:100%;border-radius:2px;transition:.8s}
+.li-val{font-family:'Orbitron',monospace;font-size:8px;min-width:22px;text-align:right}
+.lc-bestfor{display:flex;gap:4px;align-items:center;margin-bottom:8px}
+.lc-bf-label{font-size:8px;color:var(--dim)}
+.bf-icon{font-size:14px;opacity:.7;transition:.2s;cursor:pointer}
+.bf-icon:hover{opacity:1;transform:scale(1.15)}
+.bf-icon.match{opacity:1;filter:drop-shadow(0 0 4px currentColor)}
+.lc-score-bar{height:3px;background:rgba(255,255,255,.06);border-radius:2px;margin-bottom:8px;overflow:hidden}
+.lc-score-fill{height:100%;border-radius:2px;transition:1s}
+.lc-compat{font-family:'Orbitron',monospace;font-size:9px;margin-bottom:6px}
+.lc-btns{display:flex;gap:5px}
+.lbtn{flex:1;font-family:'Orbitron',monospace;font-size:7.5px;letter-spacing:.06em;padding:6px 4px;border:1px solid var(--border);border-radius:3px;cursor:pointer;background:transparent;color:var(--text);transition:.2s;text-align:center}
+.lbtn:hover{background:rgba(255,204,0,.1);border-color:var(--gold);color:var(--gold)}
+.lbtn.primary{background:rgba(255,204,0,.12);border-color:rgba(255,204,0,.35);color:var(--gold)}
+.lbtn.primary:hover{background:rgba(255,204,0,.22)}
+.no-land{text-align:center;color:var(--dim);font-size:11px;line-height:1.9;padding:20px 8px}
+
+/* Land markers on map */
+.land-mk{position:relative;cursor:pointer}
+.land-mk-inner{width:28px;height:28px;border:2px solid var(--gold);transform:rotate(45deg);background:rgba(0,0,0,.78);display:flex;align-items:center;justify-content:center;box-shadow:0 0 12px rgba(255,204,0,.4);transition:.3s;animation:lmdrop .4s cubic-bezier(.34,1.56,.64,1)}
+.land-mk-inner:hover{box-shadow:0 0 22px rgba(255,204,0,.7)}
+.land-mk-icon{transform:rotate(-45deg);font-size:12px;display:block;line-height:1}
+.land-mk-score{position:absolute;top:-12px;left:50%;transform:translateX(-50%);font-family:'Orbitron',monospace;font-size:8px;font-weight:700;background:rgba(0,0,0,.9);border:1px solid rgba(255,204,0,.5);border-radius:2px;padding:1px 4px;color:var(--gold);white-space:nowrap}
+.land-mk-urg{position:absolute;bottom:-12px;left:50%;transform:translateX(-50%);font-family:'Orbitron',monospace;font-size:6.5px;letter-spacing:.06em;padding:1px 4px;border-radius:2px;white-space:nowrap}
+@keyframes lmdrop{from{transform:rotate(45deg) scale(0);opacity:0}to{transform:rotate(45deg) scale(1);opacity:1}}
+
+/* Land map popup extras */
+.lp-infra{display:flex;gap:8px;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);margin-bottom:4px}
+.lp-ibar{display:flex;flex-direction:column;align-items:center;gap:2px;flex:1}
+.lp-ibar-label{font-size:7px;color:var(--dim);letter-spacing:.06em}
+.lp-ibar-val{font-family:'Orbitron',monospace;font-size:10px;font-weight:700}
+
+/* Toast */
+#toast{position:fixed;bottom:84px;right:18px;z-index:9999;background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:6px;padding:11px 16px;font-size:11px;backdrop-filter:blur(12px);pointer-events:none;opacity:0;transform:translateY(6px);transition:.3s;max-width:280px;line-height:1.5;box-shadow:0 4px 30px rgba(0,0,0,.6)}
+#toast.show{opacity:1;transform:translateY(0)}
+.tt{font-family:'Orbitron',monospace;font-size:9px;letter-spacing:.1em;margin-bottom:3px}
+
+/* Misc */
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+body.placing{cursor:crosshair}
+body.placing #map{cursor:crosshair}
+.leaflet-bar a{background:rgba(8,18,38,.9)!important;color:var(--text)!important;border-color:var(--border)!important}
+.leaflet-bar a:hover{background:rgba(0,180,255,.14)!important}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════ GLOBE SCREEN ═══════════════ -->
+<div id="globe-screen">
+  <canvas id="star-canvas"></canvas>
+  <div class="hex-grid"></div>
+  <div class="scanlines"></div>
+  <div class="sweep"></div>
+
+  <!-- Corner brackets -->
+  <div class="corner c-tl"></div>
+  <div class="corner c-tr"></div>
+  <div class="corner c-bl"></div>
+  <div class="corner c-br"></div>
+
+  <!-- Left HUD column -->
+  <div class="hud-left">
+    <div class="hud-item"><span class="hud-val">12</span><span class="hud-lbl">MUNICIPALITIES</span></div>
+    <div class="hud-item"><span class="hud-val" style="color:var(--orange)">1,373</span><span class="hud-lbl">KM² AREA</span></div>
+    <div class="hud-item"><span class="hud-val" style="color:var(--green)">ONLINE</span><span class="hud-lbl">SYS STATUS</span></div>
+    <div class="hud-item"><span class="hud-val" style="color:var(--gold)">2026</span><span class="hud-lbl">SMV EDITION</span></div>
+    <div class="hud-item"><span class="hud-val" style="color:var(--purple)">14.65°N</span><span class="hud-lbl">LATITUDE</span></div>
+    <div class="hud-item"><span class="hud-val" style="color:var(--purple)">120.49°E</span><span class="hud-lbl">LONGITUDE</span></div>
+  </div>
+
+  <!-- Globe -->
+  <div class="globe-wrap">
+    <div class="atmo-outer"></div>
+    <div class="atmo-inner"></div>
+    <div class="orbit orbit-3"></div>
+    <div class="orbit orbit-2"><div class="orb-sat" style="background:var(--gold);box-shadow:0 0 10px var(--gold),0 0 20px rgba(255,204,0,.4)"></div></div>
+    <div class="orbit orbit-1"><div class="orb-sat"></div></div>
+    <div class="globe">
+      <div class="globe-grid"></div>
+      <div class="globe-night"></div>
+      <div class="land" style="width:84px;height:57px;top:21%;left:51%;--lr:rotate(-15deg);background:rgba(18,52,118,.42)"></div>
+      <div class="land" style="width:54px;height:37px;top:26%;left:36%;--lr:rotate(20deg);background:rgba(14,44,100,.36)"></div>
+      <div class="land" style="width:70px;height:43px;top:38%;left:58%;--lr:rotate(-5deg);border-radius:40% 60% 70% 30%;background:rgba(16,48,112,.40)"></div>
+      <div class="land" style="width:94px;height:32px;top:58%;left:14%;--lr:rotate(10deg);border-radius:70% 30% 40% 60%;background:rgba(11,36,88,.32)"></div>
+      <div class="land" style="width:58px;height:48px;top:48%;left:39%;--lr:rotate(-20deg);background:rgba(20,55,128,.38)"></div>
+      <div class="globe-shine"></div>
+    </div>
+    <div class="ph-marker">
+      <div class="ph-ring3"></div>
+      <div class="ph-ring2"></div>
+      <div class="ph-ring"></div>
+      <div class="ph-dot"></div>
+      <div class="ph-label">BATAAN · PH</div>
+    </div>
+  </div>
+
+  <!-- Intro panel -->
+  <div class="intro-panel">
+    <div class="firma-badge">FIRMA STRATEGIC · INTELLIGENCE DIVISION</div>
+    <h1 class="main-title">BATAAN<br>LAND<br>INTELLIGENCE<br>SYSTEM</h1>
+    <div class="title-sub">Nation of Heaven · EDGE Infrastructure Engine v1.2<br>Province of Bataan · Central Luzon, Philippines</div>
+    <div class="sys-stats">
+      <div class="stat">
+        <span class="sv" id="s-muni" style="--sc:var(--accent)">0</span>
+        <span class="sl">Municipalities</span>
+      </div>
+      <div class="stat">
+        <span class="sv" id="s-area" style="--sc:var(--orange)">0</span>
+        <span class="sl">km² Province</span>
+      </div>
+      <div class="stat">
+        <span class="sv" id="s-asset" style="--sc:var(--green)">0</span>
+        <span class="sl">Asset Classes</span>
+      </div>
+      <div class="stat">
+        <span class="sv" id="s-parcels" style="--sc:var(--gold)">0</span>
+        <span class="sl">Land Parcels</span>
+      </div>
+    </div>
+    <div class="asset-badges">
+      <div class="abadge"><span class="bi">🏛️</span> FIRMA HQ</div>
+      <div class="abadge"><span class="bi">🏘️</span> HAVEN VILLAGE</div>
+      <div class="abadge"><span class="bi">⛏️</span> STEEL FORGE</div>
+      <div class="abadge"><span class="bi">☀️</span> SOLAR FARM</div>
+    </div>
+    <div class="status-row">
+      <div class="status-dot"></div>
+      <span class="status-txt">ALL SYSTEMS NOMINAL</span>
+      <span class="status-sep">·</span>
+      <span style="color:var(--dim)">BLIS v1.2</span>
+      <span class="status-sep">·</span>
+      <span style="color:var(--dim)" id="sys-time">--:--:-- UTC</span>
+    </div>
+    <button id="enter-btn" onclick="enterBataan()">
+      <span class="btn-arrow">▶</span>
+      <span>ENTER BATAAN</span>
+    </button>
+    <div class="enter-hint">Click to access the geospatial intelligence platform</div>
+  </div>
+
+  <!-- Bottom ticker -->
+  <div class="ticker-wrap">
+    <div class="ticker-label">LIVE INTEL</div>
+    <div class="ticker-track">
+      <div class="ticker-inner">
+        <span>SBFZ Industrial Zone · <b>DUTY-FREE</b> · Mariveles · ₱3,500–8,500/sqm</span>
+        <span>Steel Forge Score · Mariveles Deepwater · <b>97/100 OPTIMAL</b></span>
+        <span>Samal Solar Belt · <b>1,373 km² Province Mapped</b> · 12 Municipalities</span>
+        <span>Hermosa Commercial · HQ Prime Location · <b>₱4,200/sqm avg BIR</b></span>
+        <span>BCDA Dinalupihan SEZ · Mixed-Use · <b>LOW RISK · RA 11453</b></span>
+        <span>Lamao Industrial · BTC Mining Optimal · <b>92MW Grid Access</b></span>
+        <span>Orani Coastal · Haven Village · <b>12 Land Parcels Pre-Ranked</b></span>
+        <span>SBFZ Industrial Zone · <b>DUTY-FREE</b> · Mariveles · ₱3,500–8,500/sqm</span>
+        <span>Steel Forge Score · Mariveles Deepwater · <b>97/100 OPTIMAL</b></span>
+        <span>Samal Solar Belt · <b>1,373 km² Province Mapped</b> · 12 Municipalities</span>
+        <span>Hermosa Commercial · HQ Prime Location · <b>₱4,200/sqm avg BIR</b></span>
+        <span>BCDA Dinalupihan SEZ · Mixed-Use · <b>LOW RISK · RA 11453</b></span>
+        <span>Lamao Industrial · BTC Mining Optimal · <b>92MW Grid Access</b></span>
+        <span>Orani Coastal · Haven Village · <b>12 Land Parcels Pre-Ranked</b></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════ MAIN INTERFACE ═══════════════ -->
+<div id="main-interface">
+  <div id="topbar">
+    <div class="tb-logo"><span class="lf">FIRMA</span><span class="ls">·</span><span class="lb">BLIS</span></div>
+    <div class="tb-title">Bataan Land Intelligence System v1.2</div>
+    <div class="tbsp"></div>
+    <div class="coords">
+      <span class="cl">LAT</span><span id="lat-val">14.6560°N</span>
+      <span class="cl">LNG</span><span id="lng-val">120.4900°E</span>
+    </div>
+    <button class="tb-btn" id="heatmap-btn" onclick="toggleHeatmap()">⬡ HEATMAP</button>
+    <button class="tb-btn on" id="zones-btn" onclick="toggleZones()">⬡ ZONES</button>
+    <button class="tb-btn on" id="infra-btn" onclick="toggleInfra()">⬡ INFRA</button>
+    <button class="tb-btn on" id="recs-btn" onclick="toggleRecMarkers()">★ RECS</button>
+    <button class="tb-btn on" id="land-btn" onclick="toggleLandMarkers()" style="border-color:rgba(255,204,0,.35);color:var(--gold)">🏗 LAND</button>
+    <div class="sdots">
+      <div class="sdot live"></div><div class="sdot live"></div><div class="sdot"></div>
+    </div>
+  </div>
+
+  <div id="body-wrap">
+    <!-- Sidebar -->
+    <div id="sidebar">
+      <div class="tab-bar">
+        <button class="tab-btn on" onclick="switchTab('layers',this)">LAYERS</button>
+        <button class="tab-btn" onclick="switchTab('pins',this)">PINS<span id="pcb"></span></button>
+        <button class="tab-btn" onclick="switchTab('recs',this)">RECS</button>
+        <button class="tab-btn" onclick="switchTab('land',this)" style="color:rgba(255,204,0,.6)">LAND</button>
+        <button class="tab-btn" onclick="switchTab('data',this)">DATA</button>
+      </div>
+
+      <!-- LAYERS -->
+      <div id="tab-layers" class="tc on">
+        <div class="shd">SELECT ASSET TYPE</div>
+        <div class="asset-grid" id="sg"></div>
+        <div class="shd" style="margin-top:6px">MAP LAYERS</div>
+        <div id="layer-list"></div>
+        <div class="shd" style="margin-top:6px">ZONAL VALUE SCALE (₱/sqm)</div>
+        <div class="leg-bar"></div>
+        <div class="leg-lbl"><span>₱200</span><span>₱2K</span><span>₱8K</span><span>₱18K</span><span>₱25K+</span></div>
+        <div class="shd" style="margin-top:6px">COMPOSITE SCORE</div>
+        <div class="sband"><div class="ssw" style="background:#00ff88"></div><span>80–100 &nbsp;<span style="color:var(--dim)">Excellent · Deploy Now</span></span></div>
+        <div class="sband"><div class="ssw" style="background:#88ff44"></div><span>60–79 &nbsp;<span style="color:var(--dim)">Good · Recommended</span></span></div>
+        <div class="sband"><div class="ssw" style="background:#ffcc00"></div><span>40–59 &nbsp;<span style="color:var(--dim)">Moderate · Conditional</span></span></div>
+        <div class="sband"><div class="ssw" style="background:#ff6b35"></div><span>20–39 &nbsp;<span style="color:var(--dim)">Poor · Caution</span></span></div>
+        <div class="sband"><div class="ssw" style="background:#ff3355"></div><span>0–19 &nbsp;<span style="color:var(--dim)">Avoid</span></span></div>
+      </div>
+
+      <!-- PINS -->
+      <div id="tab-pins" class="tc">
+        <div class="shd">DEPLOYED ASSETS</div>
+        <div id="pins-list"><div class="no-pins">No assets deployed.<br><br>Select an asset type below<br>and click the map to place.</div></div>
+      </div>
+
+      <!-- RECS -->
+      <div id="tab-recs" class="tc">
+        <div class="shd">TOP LOCATIONS · FIRMA ASSETS</div>
+        <div class="rec-asset-tabs" id="rec-tabs"></div>
+        <div id="rec-cards"></div>
+      </div>
+
+      <!-- LAND ACQUISITION -->
+      <div id="tab-land" class="tc">
+        <!-- Auto-scan -->
+        <div class="auto-scan-box">
+          <div class="as-title">AI LAND SCANNER</div>
+          <div class="as-sub">Auto-ranks all available parcels by compatibility with your selected asset type. Selects the best buy opportunity with strategic reasoning.</div>
+          <button id="auto-scan-btn" onclick="autoScan()">
+            <span id="scan-icon">⬡</span><span id="scan-label">AUTO-SCAN FOR LAND</span>
+          </button>
+          <div class="scan-status" id="scan-status">Select an asset type first to enable asset-specific scan</div>
+        </div>
+
+        <!-- Filters -->
+        <div class="shd">FILTER PARCELS</div>
+        <div class="land-filters">
+          <div class="filter-row">
+            <span class="filter-label">ASSET</span>
+            <div class="fpills" id="land-filter-asset">
+              <div class="fpill on" data-val="all" onclick="setLandFilter('asset','all',this)">ALL</div>
+              <div class="fpill" data-val="hq" onclick="setLandFilter('asset','hq',this)">🏛️</div>
+              <div class="fpill" data-val="haven" onclick="setLandFilter('asset','haven',this)">🏘️</div>
+              <div class="fpill" data-val="forge" onclick="setLandFilter('asset','forge',this)">⛏️</div>
+              <div class="fpill" data-val="solar" onclick="setLandFilter('asset','solar',this)">☀️</div>
+            </div>
+          </div>
+          <div class="filter-row">
+            <span class="filter-label">BUDGET</span>
+            <select class="fsel" id="land-filter-budget" onchange="applyLandFilters()">
+              <option value="all">All Budgets (any sqm)</option>
+              <option value="5m">Under ₱5M total land</option>
+              <option value="20m">₱5M – ₱20M total land</option>
+              <option value="50m">₱20M – ₱50M total land</option>
+              <option value="100m">₱50M+ total land</option>
+            </select>
+          </div>
+          <div class="filter-row">
+            <span class="filter-label">SORT</span>
+            <select class="fsel" id="land-sort" onchange="applyLandFilters()">
+              <option value="compat">Compatibility Score ↓</option>
+              <option value="price_asc">Price Low → High</option>
+              <option value="price_desc">Price High → Low</option>
+              <option value="urgency">Urgency (HIGH first)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="shd" style="margin-top:4px">AVAILABLE PARCELS <span id="land-count" style="color:var(--accent)"></span></div>
+        <div id="land-cards"></div>
+      </div>
+
+      <!-- DATA -->
+      <div id="tab-data" class="tc">
+        <div class="shd">MUNICIPALITY PROFILES</div>
+        <div id="muni-list"></div>
+        <div class="ds">Sources: BIR Zonal Values 2024 · Bataan 2026 Proposed SMV · PSA Census 2020 · SBMA/SBFZ Registry · RA 11453 Expansion Maps · LGU Bataan Infrastructure Database</div>
+      </div>
+    </div>
+
+    <!-- Map -->
+    <div id="map-wrap"><div id="map"></div></div>
+  </div>
+
+  <!-- Toolbar -->
+  <div id="toolbar">
+    <div class="tool-lbl">DEPLOY<br>ASSET</div>
+    <div class="tsep"></div>
+    <div class="tool-assets" id="toolbar-assets"></div>
+    <div class="tsep"></div>
+    <div class="tool-hint-wrap">
+      <div class="tool-hint" id="tool-hint">Select an asset type · then click the map to deploy</div>
+      <div id="score-wrap" style="display:none">
+        <div class="score-big">LAST COMPOSITE SCORE</div>
+        <div class="score-num" id="score-num">--</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast"><div class="tt" id="tt"></div><div id="tb"></div></div>
+
+<!-- Land Calculator Modal -->
+<div id="modal-overlay">
+  <div class="modal-box">
+    <div class="mhdr">
+      <div class="mhdr-icon" id="m-icon">🏛️</div>
+      <div class="mhdr-title">
+        <div class="mhdr-asset" id="m-asset-name">Firma HQ</div>
+        <div class="mhdr-loc" id="m-loc">Mariveles, Bataan</div>
+      </div>
+      <button class="mclose" onclick="closeModal()">✕</button>
+    </div>
+    <div class="mbody">
+      <div class="shd" style="margin-bottom:12px">SELECT SCALE</div>
+      <div class="scale-selector" id="scale-selector"></div>
+      <div class="shd" style="margin-bottom:10px">LAND REQUIREMENT</div>
+      <div class="calc-section">
+        <div class="calc-row highlight" id="cr-sqm"><span class="cr-key">Land Area Needed</span><span class="cr-val" id="cv-sqm">--</span></div>
+        <div class="calc-row" id="cr-zon"><span class="cr-key">BIR Zonal Value (avg)</span><span class="cr-val" id="cv-zon">--</span></div>
+        <div class="calc-row highlight" id="cr-land"><span class="cr-key">Est. Land Acquisition</span><span class="cr-val" id="cv-land">--</span></div>
+      </div>
+      <div class="shd" style="margin-bottom:10px">INVESTMENT BREAKDOWN</div>
+      <div class="calc-section">
+        <div class="calc-row" id="cr-build"><span class="cr-key">Build / Equipment Cost</span><span class="cr-val" id="cv-build">--</span></div>
+        <div class="calc-row" id="cr-units"><span class="cr-key">Configuration</span><span class="cr-val" id="cv-units" style="font-size:9px;max-width:220px;text-align:right">--</span></div>
+      </div>
+      <div class="total-box">
+        <div>
+          <div class="total-label">TOTAL INVESTMENT</div>
+          <div style="font-size:9px;color:var(--dim);margin-top:3px">Land + Build/Equipment</div>
+        </div>
+        <div class="total-val" id="total-val">₱--</div>
+      </div>
+      <div class="shd" style="margin-bottom:10px">REVENUE FORECAST</div>
+      <div class="calc-section">
+        <div class="calc-row highlight" id="cr-rev"><span class="cr-key">Monthly Revenue (est.)</span><span class="cr-val" id="cv-rev" style="color:var(--green)">--</span></div>
+        <div class="calc-row" id="cr-roi"><span class="cr-key">Break-even Timeline</span><span class="cr-val" id="cv-roi" style="color:var(--gold)">--</span></div>
+      </div>
+      <div class="roi-box">
+        <div>
+          <div class="roi-label">NET MONTHLY (ESTIMATED)</div>
+          <div class="revenue-note" id="rev-note">--</div>
+        </div>
+        <div class="roi-val" id="roi-val">--</div>
+      </div>
+    </div>
+    <div class="mfooter">
+      <button class="mfbtn secondary" onclick="closeModal()">CLOSE</button>
+      <button class="mfbtn primary" id="modal-place-btn" onclick="placePinFromModal()">▶ PLACE PIN ON MAP</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════
+//  DATA
+// ══════════════════════════════════════════
+const MUNICIPALITIES = [
+  { id:'mariveles',   name:'Mariveles',     lat:14.437, lng:120.488, zonalMin:2000,  zonalMax:15000, pop:120456, areaHa:19650, zoning:['Industrial','Freeport','Residential'],     features:['Port of Mariveles','SBFZ','Bataan Tech Park','RA 11453'], powerScore:.92, portScore:1.0, roadScore:.82, r:8.5 },
+  { id:'balanga',     name:'Balanga City',  lat:14.676, lng:120.535, zonalMin:5000,  zonalMax:25000, pop:97187,  areaHa:10821, zoning:['Commercial','Residential','Institutional'], features:['Provincial Capitol','City Hall','Commercial Hub'],        powerScore:.95, portScore:.38, roadScore:.95, r:6.0 },
+  { id:'limay',       name:'Limay',         lat:14.558, lng:120.598, zonalMin:1500,  zonalMax:8000,  pop:78534,  areaHa:11460, zoning:['Industrial','Commercial','Residential'],    features:['Limay Industrial Zone','Petrochem Complex','NPC Plant'],  powerScore:.88, portScore:.62, roadScore:.78, r:6.5 },
+  { id:'orion',       name:'Orion',         lat:14.621, lng:120.578, zonalMin:1000,  zonalMax:6000,  pop:55612,  areaHa:10200, zoning:['Residential','Commercial','Agricultural'],  features:['Manila Bay Coast','Calumpang Point'],                     powerScore:.75, portScore:.55, roadScore:.70, r:6.0 },
+  { id:'samal',       name:'Samal',         lat:14.768, lng:120.549, zonalMin:300,   zonalMax:2000,  pop:28340,  areaHa:7800,  zoning:['Agricultural','Residential'],               features:['Farmlands','Pampanga River Delta'],                       powerScore:.65, portScore:.30, roadScore:.72, r:5.5 },
+  { id:'abucay',      name:'Abucay',        lat:14.733, lng:120.526, zonalMin:400,   zonalMax:2500,  pop:45670,  areaHa:9100,  zoning:['Agricultural','Residential','Commercial'],  features:['Bataan Shrine','Abucay Bay'],                             powerScore:.68, portScore:.38, roadScore:.68, r:5.5 },
+  { id:'orani',       name:'Orani',         lat:14.802, lng:120.530, zonalMin:600,   zonalMax:4000,  pop:53450,  areaHa:9700,  zoning:['Commercial','Agricultural','Residential'],  features:['Orani Market','Bataan National Highway'],                 powerScore:.72, portScore:.28, roadScore:.80, r:6.0 },
+  { id:'hermosa',     name:'Hermosa',       lat:14.831, lng:120.504, zonalMin:500,   zonalMax:3000,  pop:41230,  areaHa:11300, zoning:['Agricultural','Residential','Industrial'],  features:['Hermosa Eco-Zone','BCDA Subzone'],                        powerScore:.70, portScore:.22, roadScore:.78, r:6.0 },
+  { id:'dinalupihan', name:'Dinalupihan',   lat:14.876, lng:120.462, zonalMin:800,   zonalMax:5000,  pop:64320,  areaHa:13200, zoning:['Commercial','Industrial','Residential'],    features:['NLEX/SCTEX Gateway','Dinalupihan Technopark'],            powerScore:.78, portScore:.20, roadScore:.88, r:7.0 },
+  { id:'pilar',       name:'Pilar',         lat:14.659, lng:120.723, zonalMin:400,   zonalMax:2500,  pop:22140,  areaHa:5400,  zoning:['Agricultural','Residential'],               features:['Manila Bay Shoreline','Wetland Sanctuary'],               powerScore:.60, portScore:.45, roadScore:.55, r:4.5 },
+  { id:'morong',      name:'Morong',        lat:14.691, lng:120.267, zonalMin:200,   zonalMax:1500,  pop:14890,  areaHa:23700, zoning:['Agricultural','Forest','Residential'],      features:['Morong Nuclear Site','Bataan Natural Park'],              powerScore:.55, portScore:.28, roadScore:.48, r:8.0 },
+  { id:'bagac',       name:'Bagac',         lat:14.593, lng:120.394, zonalMin:200,   zonalMax:1200,  pop:18760,  areaHa:21500, zoning:['Agricultural','Forest','Eco-Tourism'],      features:['Bagac Bay','Mt. Samat Forest','Eco-Resort Zone'],         powerScore:.50, portScore:.55, roadScore:.45, r:8.0 },
+];
+
+const INFRA = {
+  port:   { lat:14.437,lng:120.488,label:'Port of Mariveles',icon:'⚓',type:'port' },
+  sbfz:   { lat:14.448,lng:120.468,label:'SBFZ Freeport',icon:'🏭',type:'freeport' },
+  power1: { lat:14.525,lng:120.548,label:'Bataan 2020 Power Plant',icon:'⚡',type:'power' },
+  power2: { lat:14.688,lng:120.268,label:'BNPP Site',icon:'⚡',type:'power' },
+  nlex:   { lat:14.876,lng:120.462,label:'NLEX/SCTEX Exit',icon:'🛣',type:'road' },
+  hwy1:   { lat:14.556,lng:120.596,label:'N. Highway Jct.',icon:'🛣',type:'road' },
+  cable:  { lat:14.437,lng:120.490,label:'Submarine Cable Hub (-90km)',icon:'🌐',type:'fiber' },
+};
+
+// ASSET TYPES
+const ASSETS = {
+  hq: {
+    id:'hq', label:'Firma HQ', sub:'SeedBase Hub', icon:'🏛️', color:'#00b4ff',
+    weights:{port:.15,power:.20,road:.30,zoning:.20,cost:.15},
+    preferred:['commercial','freeport','industrial'],
+    desc:'SeedBase Hub · 1Accord Commons · Crypto Onboarding · CIK Mission Staging',
+    sizes:{
+      s:{sqm:300, label:'Starter',  units:'1 × 40ft SeedBase pod + glass fitout', containers:1, build:3800000},
+      m:{sqm:750, label:'Standard', units:'2–3 × 40ft + 1 × 20ft link + café + commons', containers:3, build:9500000},
+      l:{sqm:2200,label:'Campus',   units:'5+ containers + full EDGE campus amenities', containers:5, build:24000000}
+    },
+    revenue:{s:180000,m:420000,l:900000,note:'Coworking · training · CIK staging fees · crypto onboarding'}
+  },
+  haven: {
+    id:'haven', label:'Haven Village', sub:'Container Housing', icon:'🏘️', color:'#00ff88',
+    weights:{port:.10,power:.20,road:.25,zoning:.25,cost:.20},
+    preferred:['residential','agricultural','freeport'],
+    desc:'MODPOD residential · Haven One/Two/Lux · T0→T1 pathway · FIT team campus',
+    sizes:{
+      s:{sqm:1400, label:'Starter',  units:'5 × Haven modules + shared amenities', containers:5,  build:11500000},
+      m:{sqm:3000, label:'Village',  units:'10 × Haven modules + pool + fire pit + commons', containers:10, build:23000000},
+      l:{sqm:6500, label:'Township', units:'20 × Haven One/Two/Lux + full village fitout', containers:20, build:48000000}
+    },
+    revenue:{s:125000,m:260000,l:540000,note:'FIT team housing + settler residency + rental income'}
+  },
+  forge: {
+    id:'forge', label:'Steel Forge', sub:'BTC Mining Farm', icon:'⛏️', color:'#ff6b35',
+    weights:{port:.20,power:.42,road:.20,zoning:.10,cost:.08},
+    preferred:['industrial','freeport'],
+    desc:'~500 TH/s per 40ft container · liquid cooling · 85% waste heat recovery · duty-free RA 11453',
+    sizes:{
+      s:{sqm:500,  label:'1 Unit',    units:'1 × 40ft Forge container (~500 TH/s)', containers:1,  build:5700000},
+      m:{sqm:2200, label:'5 Units',   units:'5 × Forge containers (~2.5 PH/s) + cooling plant', containers:5,  build:28500000},
+      l:{sqm:8500, label:'20 Units',  units:'20 × containers (~10 PH/s) + industrial cooling + UPS', containers:20, build:114000000}
+    },
+    revenue:{s:640000,m:3200000,l:12800000,note:'~₱640K/mo net per container @ BTC $68K after power cost'}
+  },
+  solar: {
+    id:'solar', label:'Solar Farm', sub:'Sovereign Energy', icon:'☀️', color:'#ffcc00',
+    weights:{port:.05,power:.08,road:.18,zoning:.32,cost:.37},
+    preferred:['agricultural','forest','eco-tourism','industrial'],
+    desc:'Grid independence · Ion+ sodium-ion battery backup · powers Forge + Haven + Hub',
+    sizes:{
+      s:{sqm:1200,  label:'100 kW', units:'~350 panels + Ion+ battery rack + inverter', containers:0, build:6000000},
+      m:{sqm:6000,  label:'500 kW', units:'~1,750 panels + 2 × Ion+ battery racks + SCADA', containers:0, build:30000000},
+      l:{sqm:12000, label:'1 MW',   units:'~3,500 panels + full Ion+ storage bank + grid tie', containers:0, build:60000000}
+    },
+    revenue:{s:75000,m:375000,l:750000,note:'Grid feed-in @ ₱4.60/kWh · powers Forge ops (offsets ~₱500K/mo per 5-unit farm)'}
+  }
+};
+
+// PRE-COMPUTED RECOMMENDATIONS
+const RECS = {
+  hq: [
+    { name:'Mariveles CBD (Near TESDA)', lat:14.445, lng:120.495, score:92, muniId:'mariveles', note:'#1 pick: SBFZ duty-free, port, submarine cable proximity, crypto developer community already present', tag:'TOP PICK' },
+    { name:'Balanga City Hall District', lat:14.678, lng:120.537, score:81, muniId:'balanga',   note:'Provincial capital: maximum visibility, government relations, highest commercial foot traffic', tag:'VISIBILITY' },
+    { name:'Limay Industrial Hub',       lat:14.560, lng:120.600, score:73, muniId:'limay',     note:'Industrial zoning, petrochem proximity, port access, 40% lower land cost than Balanga', tag:'COST-EFFICIENT' }
+  ],
+  haven: [
+    { name:'Mariveles Expansion Area',   lat:14.450, lng:120.478, score:89, muniId:'mariveles', note:'SBFZ RA 11453 T0→T1 fastest settlement pathway, port services, Forge heat recovery adjacency', tag:'TOP PICK' },
+    { name:'Limay Residential Corridor', lat:14.555, lng:120.590, score:77, muniId:'limay',     note:'Near industrial employment base, established amenities, 40% lower cost than Mariveles', tag:'WORKFORCE HUB' },
+    { name:'Hermosa BCDA Subzone',       lat:14.833, lng:120.512, score:68, muniId:'hermosa',   note:'Cheapest buildable land near NLEX, economic zone incentives, expanding residential demand', tag:'LOW COST' }
+  ],
+  forge: [
+    { name:'SBFZ Industrial Zone',       lat:14.446, lng:120.466, score:97, muniId:'mariveles', note:'#1 globally: duty-free container import, deepwater port, 11m harbor, direct power plant grid, submarine fiber hub', tag:'OPTIMAL' },
+    { name:'Limay Petrochem Zone',       lat:14.544, lng:120.594, score:83, muniId:'limay',     note:'Existing industrial grid, 62% port proximity, NPC plant nearby, petrochem zoning = no heat complaints', tag:'INDUSTRIAL' },
+    { name:'Dinalupihan Technopark',     lat:14.875, lng:120.455, score:68, muniId:'dinalupihan',note:'NLEX logistics, economic zone, lower land cost — but 58km from port increases container shipping cost', tag:'MAINLAND' }
+  ],
+  solar: [
+    { name:'Morong Open Plateau',        lat:14.695, lng:120.255, score:91, muniId:'morong',    note:'Highest solar hours in province, cheapest open land ₱200–₱1.5K/sqm, unobstructed south-facing terrain', tag:'SOLAR PRIME' },
+    { name:'Bagac Agricultural Zone',    lat:14.590, lng:120.380, score:84, muniId:'bagac',     note:'Open bay-facing terrain, minimal shading, agri zoning = lowest cost, eco-compatible development', tag:'ECO FRIENDLY' },
+    { name:'Hermosa Economic Zone',      lat:14.828, lng:120.500, score:72, muniId:'hermosa',   note:'BCDA grid tie-in available, Ion+ battery storage logistics via NLEX, BCDA incentives', tag:'GRID CONNECTED' }
+  ]
+};
+
+// ══════════════════════════════════════════
+//  LAND ACQUISITION OPPORTUNITIES
+// ══════════════════════════════════════════
+const LAND_OPPS = [
+  {
+    id:'l1', name:'SBFZ Industrial Block A', lat:14.446, lng:120.465, muniId:'mariveles',
+    class:'Industrial / Freeport', sqmMin:1000, sqmMax:10000, priceMin:3500, priceMax:8500,
+    bestFor:['forge','hq'], risk:'low', urgency:'HIGH', tag:'DUTY-FREE',
+    legal:'RA 11453 · SBMA Lease · Freeport status',
+    why:'Prime freeport land with duty-free container import rights under RA 11453 — zero import duties on all Forge hardware. Crane-offload access to 11–13m deep Mariveles harbor. Direct industrial power grid tie-in. Submarine cable hub 90km from Manila = best fiber latency in province. This is the single most strategically valuable industrial parcel in all of Bataan for Forge + HQ combo.',
+    infrastructure:{power:95,port:100,road:85,fiber:90}
+  },
+  {
+    id:'l2', name:'Mariveles CBD — TESDA Vicinity', lat:14.445, lng:120.496, muniId:'mariveles',
+    class:'Commercial / Mixed Use', sqmMin:300, sqmMax:2000, priceMin:4000, priceMax:12000,
+    bestFor:['hq','haven'], risk:'low', urgency:'HIGH', tag:'PRIME CBD',
+    legal:'Fee simple · commercial zoning · SBFZ adjacent',
+    why:'Heart of Mariveles commercial district directly adjacent to TESDA vocational campus — built-in tech and trade talent pipeline for CIK missions. Walking distance to Port of Mariveles. Glass-forward SeedBase Hub here becomes the most visible building in Mariveles CBD. Crypto and blockchain developer community already active. Best HQ visibility-to-cost ratio in province.',
+    infrastructure:{power:90,port:95,road:90,fiber:85}
+  },
+  {
+    id:'l3', name:'Mariveles Expansion Area — RA 11453', lat:14.452, lng:120.478, muniId:'mariveles',
+    class:'Residential / Settlement', sqmMin:2000, sqmMax:20000, priceMin:2500, priceMax:6000,
+    bestFor:['haven','hq','forge'], risk:'low', urgency:'HIGH', tag:'RA 11453',
+    legal:'RA 11453 Expansion Zone · settlement-eligible · fastest T0→T1',
+    why:'Officially designated expansion zone under RA 11453 — the fastest T0→T1 sovereign settlement pathway in all of Bataan. Haven Village here qualifies FIT team settlers for Firma residency track directly. Adjacent to SBFZ for employment, close to port. Forge waste heat can pipe directly to adjacent residential Haven modules, reducing heating costs and creating a vertically integrated micro-grid.',
+    infrastructure:{power:88,port:90,road:80,fiber:78}
+  },
+  {
+    id:'l4', name:'Limay Industrial Corridor', lat:14.543, lng:120.594, muniId:'limay',
+    class:'Industrial', sqmMin:1500, sqmMax:15000, priceMin:2000, priceMax:5500,
+    bestFor:['forge','hq','solar'], risk:'low', urgency:'MEDIUM', tag:'INDUSTRIAL',
+    legal:'Industrial zone · commercial title · NPC grid access',
+    why:'Existing NPC (National Power Corporation) power plant nearby provides reliable heavy-load grid connection critical for Forge operations. Petrochem zone = no community complaints about industrial noise or heat. 40% cheaper than SBFZ while still 62% port-proximate. NPC grid reliability rating exceeds Manila grid. Second-best Forge site in province with significantly lower land acquisition cost.',
+    infrastructure:{power:88,port:65,road:78,fiber:72}
+  },
+  {
+    id:'l5', name:'Morong Open Plateau — South Face', lat:14.693, lng:120.253, muniId:'morong',
+    class:'Agricultural / Open Land', sqmMin:5000, sqmMax:50000, priceMin:200, priceMax:800,
+    bestFor:['solar','haven'], risk:'medium', urgency:'MEDIUM', tag:'CHEAPEST LAND',
+    legal:'Agricultural title · CARP clearance for >5ha · DAR conversion eligible',
+    why:'Cheapest buildable land in entire Bataan province at ₱200–₱800/sqm — 15× cheaper than Mariveles industrial. South-facing unobstructed plateau gets maximum solar irradiance with highest sun-hours in province due to western exposure over South China Sea. Large contiguous tracts of 5–50 hectares available. A 1 MW solar farm here costs 60% less on land acquisition than any other municipality. Best ROI for solar in all Central Luzon.',
+    infrastructure:{power:55,port:28,road:48,fiber:35}
+  },
+  {
+    id:'l6', name:'Bagac Bay Agricultural Zone', lat:14.590, lng:120.375, muniId:'bagac',
+    class:'Agricultural / Eco-Tourism', sqmMin:3000, sqmMax:30000, priceMin:200, priceMax:600,
+    bestFor:['solar','haven'], risk:'medium', urgency:'LOW', tag:'ECO-FRIENDLY',
+    legal:'Agricultural title · eco-zone compatible · agri-tourism permit',
+    why:'Bay-facing open terrain with zero shading from hills — optimal solar array orientation. Second cheapest land in province after Morong. Eco-tourism zoning permits Haven Village with agri-tourism overlay, attracting a different settler demographic (regenerative agriculture, eco-living). Low population density = zero community opposition to infrastructure. Bagac Bay provides natural beauty premium for Haven rental rates.',
+    infrastructure:{power:50,port:55,road:45,fiber:30}
+  },
+  {
+    id:'l7', name:'Hermosa BCDA Economic Zone', lat:14.829, lng:120.508, muniId:'hermosa',
+    class:'Industrial / Economic Zone', sqmMin:1000, sqmMax:10000, priceMin:800, priceMax:2500,
+    bestFor:['solar','haven','forge'], risk:'low', urgency:'MEDIUM', tag:'BCDA ZONE',
+    legal:'BCDA Economic Zone · income tax holiday · zero VAT on imports · NLEX access',
+    why:'BCDA (Bases Conversion Development Authority) zone provides fiscal incentives that stack with Firma\'s freeport strategy: income tax holiday for 4–6 years, zero VAT on capital equipment imports, reduced corporate tax thereafter. NLEX/SCTEX direct access makes container logistics from Mariveles port viable in 90 minutes. Solar grid tie-in infrastructure already present. Land values appreciating 15% annually as BCDA zone matures.',
+    infrastructure:{power:70,port:22,road:78,fiber:62}
+  },
+  {
+    id:'l8', name:'Dinalupihan Gateway — NLEX Frontage', lat:14.877, lng:120.458, muniId:'dinalupihan',
+    class:'Commercial / Industrial', sqmMin:500, sqmMax:5000, priceMin:1500, priceMax:4000,
+    bestFor:['hq','forge'], risk:'low', urgency:'MEDIUM', tag:'NLEX GATEWAY',
+    legal:'Commercial title · economic zone incentives · technopark zoning',
+    why:'Gateway municipality at the mouth of the Bataan peninsula. NLEX/SCTEX exit provides premium logistics — containers from Manila Port to Forge in under 2 hours. Technopark zoning in development phase (buy early = best price). HQ here maximizes Manila-Bataan corridor visibility for investor visits, government relations, and BD. Strategic for Firma\'s mainland Philippines expansion from Bataan base.',
+    infrastructure:{power:78,port:20,road:90,fiber:68}
+  },
+  {
+    id:'l9', name:'Orion Bay Residential Corridor', lat:14.622, lng:120.575, muniId:'orion',
+    class:'Residential / Commercial', sqmMin:800, sqmMax:5000, priceMin:1500, priceMax:5000,
+    bestFor:['haven','hq'], risk:'low', urgency:'LOW', tag:'BAY FRONT',
+    legal:'Mixed residential-commercial title · Manila Bay shoreline access',
+    why:'Manila Bay waterfront with panoramic views — Haven Village here commands 30–40% rental premium over inland sites. Proximity to Balanga city services while 35% more affordable than Balanga CBD. Growing residential demand from Forge and industrial workers relocating families from Metro Manila. Scenic bay setting supports the Haven "sovereign lifestyle" brand narrative and attracts premium settler tier.',
+    infrastructure:{power:75,port:55,road:70,fiber:65}
+  },
+  {
+    id:'l10', name:'Balanga Capitol District', lat:14.678, lng:120.536, muniId:'balanga',
+    class:'Commercial / Institutional', sqmMin:200, sqmMax:1500, priceMin:8000, priceMax:20000,
+    bestFor:['hq'], risk:'low', urgency:'LOW', tag:'CAPITAL',
+    legal:'Commercial title · highest zonal value in province · premium location',
+    why:'Provincial capital = maximum LGU access, highest commercial foot traffic in entire province, strongest media visibility. Expensive but Firma HQ at Capitol District signals permanence and institutional legitimacy to Province of Bataan officials, DENR, and national agencies. Essential if Firma is pursuing RA 11453 expansion territory approval — physical presence near the Capitol accelerates government relationships by 6–12 months.',
+    infrastructure:{power:95,port:38,road:95,fiber:88}
+  },
+  {
+    id:'l11', name:'Samal Agricultural Flats', lat:14.770, lng:120.545, muniId:'samal',
+    class:'Agricultural', sqmMin:3000, sqmMax:20000, priceMin:300, priceMax:1200,
+    bestFor:['solar','haven'], risk:'medium', urgency:'LOW', tag:'AGRI-VALUE',
+    legal:'Agricultural title · DAR conversion eligible <5ha · CARP clearance for larger',
+    why:'Flat agricultural land between Balanga and Abucay — ideal geometry for solar panel array rows with zero landscaping cost. National Highway frontage makes logistics viable for panels and battery racks. Pampanga River Delta proximity provides water resources for Haven Village irrigation and landscaping. CARP conversion to residential/solar is the most straightforward process in Bataan for tracts under 5 hectares.',
+    infrastructure:{power:65,port:30,road:72,fiber:50}
+  },
+  {
+    id:'l12', name:'Limay Calawis — Workforce Housing', lat:14.556, lng:120.588, muniId:'limay',
+    class:'Residential / Mixed', sqmMin:1000, sqmMax:8000, priceMin:1800, priceMax:5000,
+    bestFor:['haven','hq'], risk:'low', urgency:'MEDIUM', tag:'WORKFORCE HUB',
+    legal:'Residential/commercial title · established utilities',
+    why:'Adjacent to Limay Industrial Zone workforce — Haven Village here fills immediate verified housing demand for industrial workers from Petrochem, NPC Plant, and future Forge operations. Strong rental demand drives fastest revenue recovery of any Haven site (6–9 month occupancy ramp vs 12–18 months elsewhere). SeedBase sub-hub creates CIK mission access point serving the entire Limay industrial community of 78,000+ residents.',
+    infrastructure:{power:85,port:62,road:78,fiber:68}
+  }
+];
+
+// ═══ LAND FILTER STATE ═══
+let landFilter = { asset:'all', budget:'all' };
+let landScanDone = false;
+
+// Land configs
+const BATAAN_OUTLINE = [
+  [14.921,120.609],[14.876,120.603],[14.821,120.604],[14.762,120.622],
+  [14.710,120.650],[14.680,120.728],[14.647,120.732],[14.597,120.714],
+  [14.540,120.680],[14.466,120.621],[14.410,120.572],[14.381,120.494],
+  [14.388,120.432],[14.418,120.368],[14.455,120.299],[14.510,120.250],
+  [14.565,120.214],[14.623,120.222],[14.680,120.230],[14.742,120.243],
+  [14.812,120.265],[14.872,120.308],[14.912,120.365],[14.924,120.430],
+  [14.921,120.609]
+];
+
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let map, heatLayer, zonesLayer, infraLayer, recMarkersLayer, landLayer;
+let heatOn=false, zonesOn=true, infraOn=true, recMarkersOn=true, landMarkersOn=true;
+let selAsset=null, placedPins=[], activeRecTab='hq';
+let modalData = { assetId:null, lat:null, lng:null, muniId:null, scale:'m', fromRec:false };
+
+// ══════════════════════════════════════════
+//  STAR FIELD
+// ══════════════════════════════════════════
+// STARFIELD + SHOOTING STARS
+// ══════════════════════════════════════════
+(function(){
+  const c=document.getElementById('star-canvas'), ctx=c.getContext('2d');
+  let stars=[], shooters=[];
+  const resize=()=>{c.width=innerWidth;c.height=innerHeight};
+  resize(); window.addEventListener('resize',resize);
+  // Three depth layers
+  for(let i=0;i<420;i++){
+    const layer=Math.floor(Math.random()*3);
+    stars.push({x:Math.random(),y:Math.random(),
+      r:layer===0?Math.random()*.7+.15:layer===1?Math.random()*1.1+.35:Math.random()*1.7+.55,
+      b:Math.random()*.5+.2+layer*.15, t:Math.random()*Math.PI*2,
+      s:Math.random()*.0018+.0003+layer*.0003,
+      hue:Math.random()<.12?'255,220,180':Math.random()<.08?'200,255,220':'180,210,255'});
+  }
+  function newShooter(){
+    const side=Math.random()<.5;
+    return{x:side?0:1,y:Math.random()*.55,
+      vx:(Math.random()*.0025+.0015)*(side?1:-1),
+      vy:Math.random()*.0018+.0008,
+      len:Math.random()*90+55, life:1, decay:Math.random()*.018+.008};
+  }
+  setInterval(()=>{if(shooters.length<4)shooters.push(newShooter())},3800);
+  (function draw(){
+    ctx.clearRect(0,0,c.width,c.height);
+    stars.forEach(s=>{
+      s.t+=s.s*55;
+      const a=.18+.82*Math.abs(Math.sin(s.t));
+      ctx.beginPath();ctx.arc(s.x*c.width,s.y*c.height,s.r,0,Math.PI*2);
+      ctx.fillStyle=`rgba(${s.hue},${a*s.b})`;ctx.fill();
+    });
+    shooters=shooters.filter(s=>{
+      s.x+=s.vx;s.y+=s.vy;s.life-=s.decay;
+      if(s.life<=0||s.x<-.1||s.x>1.1)return false;
+      const tx=s.x*c.width,ty=s.y*c.height;
+      const grad=ctx.createLinearGradient(tx-s.vx*s.len*c.width,ty-s.vy*s.len*c.height,tx,ty);
+      grad.addColorStop(0,'rgba(0,180,255,0)');
+      grad.addColorStop(1,`rgba(210,235,255,${s.life*.85})`);
+      ctx.beginPath();
+      ctx.moveTo(tx-s.vx*s.len*c.width,ty-s.vy*s.len*c.height);
+      ctx.lineTo(tx,ty);
+      ctx.strokeStyle=grad;ctx.lineWidth=1.5;ctx.stroke();
+      ctx.beginPath();ctx.arc(tx,ty,1.8,0,Math.PI*2);
+      ctx.fillStyle=`rgba(255,255,255,${s.life})`;ctx.fill();
+      return true;
+    });
+    requestAnimationFrame(draw);
+  })();
+})();
+
+// ══════════════════════════════════════════
+// GLOBE SCREEN ANIMATIONS
+// ══════════════════════════════════════════
+// Count-up animation
+function countUp(id,target,duration){
+  const el=document.getElementById(id); if(!el)return;
+  const start=Date.now();
+  (function step(){
+    const p=Math.min(1,(Date.now()-start)/duration);
+    const ease=1-Math.pow(1-p,3);
+    el.textContent=Math.round(ease*target).toLocaleString();
+    if(p<1)requestAnimationFrame(step);
+  })();
+}
+// UTC clock
+(function clock(){
+  const el=document.getElementById('sys-time');
+  if(el)el.textContent=new Date().toUTCString().slice(17,25)+' UTC';
+  setTimeout(clock,1000);
+})();
+// Trigger countups on load
+setTimeout(()=>{
+  countUp('s-muni',12,700);
+  countUp('s-area',1373,1100);
+  countUp('s-asset',4,600);
+  countUp('s-parcels',12,800);
+},350);
+
+// ══════════════════════════════════════════
+//  ENTRY
+// ══════════════════════════════════════════
+function enterBataan(){
+  const btn=document.getElementById('enter-btn');
+  btn.innerHTML='<span style="animation:spin .6s linear infinite;display:inline-block">◌</span><span>INITIALIZING...</span>';
+  btn.disabled=true;
+  btn.style.borderColor='rgba(0,255,180,.6)';
+  btn.style.boxShadow='0 0 60px rgba(0,255,180,.3)';
+  setTimeout(()=>{
+    document.getElementById('globe-screen').classList.add('exit');
+    setTimeout(()=>{
+      document.getElementById('globe-screen').style.display='none';
+      const mi=document.getElementById('main-interface');
+      mi.style.display='flex'; mi.classList.add('visible');
+      initApp();
+    },1100);
+  },600);
+}
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+function initApp(){
+  buildSidebarAssets(); buildToolbar(); buildLayerList();
+  buildRecTabs(); buildRecCards('hq');
+  buildMuniList(); buildLandTab();
+  initMap();
+  showToast('System Online','BLIS v1.2 initialized · Select asset · Click map to deploy','#00b4ff');
+}
+
+function initMap(){
+  map=L.map('map',{center:[14.65,120.47],zoom:11,zoomControl:true,attributionControl:false});
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',{maxZoom:19,subdomains:'abcd'}).addTo(map);
+  L.control.attribution({prefix:'<span style="color:#3a5268;font-size:9px">© CartoDB · BIR SMV · PSA · SBMA · BLIS v1.1</span>'}).addTo(map);
+  setTimeout(()=>map.flyTo([14.62,120.47],11,{duration:2.0}),300);
+  addProvinceOutline(); addZones(); addInfrastructure(); addRecMarkers(); addLandMarkers();
+  map.on('mousemove',e=>{
+    document.getElementById('lat-val').textContent=e.latlng.lat.toFixed(4)+'°N';
+    document.getElementById('lng-val').textContent=e.latlng.lng.toFixed(4)+'°E';
+  });
+  map.on('click',onMapClick);
+}
+
+function addProvinceOutline(){
+  L.polygon(BATAAN_OUTLINE,{color:'rgba(0,180,255,.5)',weight:1.5,fillColor:'rgba(0,100,255,.03)',fillOpacity:1,dashArray:'6,4'}).addTo(map)
+   .bindTooltip('<span style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:.1em">PROVINCE OF BATAAN</span>',{className:'mpop'});
+}
+
+function addZones(){
+  zonesLayer=L.layerGroup();
+  MUNICIPALITIES.forEach(m=>{
+    const avg=(m.zonalMin+m.zonalMax)/2, col=zonalColor(avg);
+    const outer=L.circle([m.lat,m.lng],{radius:m.r*1000,color:col,weight:1,fillColor:col,fillOpacity:.10});
+    const inner=L.circle([m.lat,m.lng],{radius:m.r*350,color:col,weight:1,fillColor:col,fillOpacity:.20});
+    const pop=buildMuniPopup(m);
+    outer.bindPopup(pop,{className:'mpop',maxWidth:290});
+    inner.bindPopup(pop,{className:'mpop',maxWidth:290});
+    const lbl=L.divIcon({html:`<div style="font-family:'Orbitron',monospace;font-size:8.5px;letter-spacing:.07em;color:${col};text-shadow:0 0 8px ${col},0 1px 3px #000;text-align:center;white-space:nowrap">${m.name.toUpperCase()}</div>`,className:'',iconSize:[120,18],iconAnchor:[60,9]});
+    outer.addTo(zonesLayer); inner.addTo(zonesLayer);
+    L.marker([m.lat,m.lng],{icon:lbl,zIndexOffset:100}).addTo(zonesLayer);
+  });
+  zonesLayer.addTo(map);
+}
+
+function addInfrastructure(){
+  infraLayer=L.layerGroup();
+  const cols={port:'#00b4ff',freeport:'#ffcc00',power:'#ff6b35',road:'rgba(255,255,255,.5)',fiber:'#9c44ff'};
+  Object.values(INFRA).forEach(inf=>{
+    const col=cols[inf.type]||'#fff';
+    const ic=L.divIcon({html:`<div class="infra-ic" style="border-color:${col}45;color:${col}"><span>${inf.icon}</span><span class="infra-lb">${inf.label}</span></div>`,className:'',iconSize:[1,1],iconAnchor:[0,0]});
+    L.marker([inf.lat,inf.lng],{icon:ic,zIndexOffset:200}).addTo(infraLayer);
+  });
+  infraLayer.addTo(map);
+}
+
+function addRecMarkers(){
+  recMarkersLayer=L.layerGroup();
+  Object.entries(RECS).forEach(([assetId,recs])=>{
+    const cfg=ASSETS[assetId];
+    recs.forEach((rec,i)=>{
+      const sc=scoreColor(rec.score);
+      const icon=L.divIcon({
+        html:`<div class="amark rec-marker" style="color:${cfg.color};background:rgba(0,0,0,.7)">
+          ${cfg.icon}
+          <div class="score-badge" style="color:${sc};border-color:${sc}">${rec.score}</div>
+          <div class="rec-badge">★${i+1}</div>
+        </div>`,
+        className:'',iconSize:[38,38],iconAnchor:[19,19]
+      });
+      const marker=L.marker([rec.lat,rec.lng],{icon,zIndexOffset:300}).addTo(recMarkersLayer);
+      marker.bindPopup(buildRecPopup(cfg,rec),{className:'mpop',maxWidth:300});
+    });
+  });
+  recMarkersLayer.addTo(map);
+}
+
+function buildRecPopup(cfg,rec){
+  const muni=MUNICIPALITIES.find(m=>m.id===rec.muniId)||{};
+  const avgZ=(muni.zonalMin+muni.zonalMax)/2;
+  const sc=scoreColor(rec.score);
+  const szM=ASSETS[cfg.id].sizes.m;
+  return `<div>
+    <div class="pt" style="color:${cfg.color}">${cfg.icon} ${cfg.label} · RECOMMENDED SITE</div>
+    <div class="pr"><span class="pk">Location</span><span class="pv">${rec.name}</span></div>
+    <div class="pr"><span class="pk">Municipality</span><span class="pv">${muni.name}</span></div>
+    <div class="pr"><span class="pk">Composite Score</span><span class="pv" style="font-family:'Orbitron',monospace;font-size:14px;font-weight:900;color:${sc}">${rec.score}/100</span></div>
+    <div class="pr"><span class="pk">Tag</span><span class="pv" style="color:var(--gold)">${rec.tag}</span></div>
+    <div class="pr"><span class="pk">BIR Zonal (avg)</span><span class="pv">₱${avgZ.toLocaleString()}/sqm</span></div>
+    <div class="pr"><span class="pk">Suggested Land (M)</span><span class="pv">${szM.sqm.toLocaleString()} sqm</span></div>
+    <div class="pr"><span class="pk">Est. Land Cost (M)</span><span class="pv">₱${Math.round(szM.sqm*avgZ/1000)*1000/1000000 < 1 ? (Math.round(szM.sqm*avgZ/1000)/1000).toFixed(2)+'M' : (szM.sqm*avgZ/1000000).toFixed(1)+'M'}</span></div>
+    <div style="font-size:9px;color:var(--dim);margin-top:8px;line-height:1.5;border-top:1px solid rgba(255,255,255,.06);padding-top:6px">${rec.note}</div>
+    <div style="margin-top:8px;font-size:9px;color:var(--accent);cursor:pointer;text-align:center;padding:6px;background:rgba(0,180,255,.1);border-radius:3px;font-family:'Orbitron',monospace;letter-spacing:.1em" onclick="openModalFromRec('${cfg.id}','${rec.muniId}',${rec.lat},${rec.lng})">⬡ CALCULATE LAND &amp; COST</div>
+  </div>`;
+}
+
+// ══════════════════════════════════════════
+//  SCORING ENGINE
+// ══════════════════════════════════════════
+function hav(la1,lo1,la2,lo2){
+  const R=6371,d=Math.PI/180,dL=(la2-la1)*d,dN=(lo2-lo1)*d;
+  const a=Math.sin(dL/2)**2+Math.cos(la1*d)*Math.cos(la2*d)*Math.sin(dN/2)**2;
+  return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+function ds(la,lo,tla,tlo,mx){return Math.max(0,1-hav(la,lo,tla,tlo)/mx)}
+function roadSc(la,lo){
+  const pts=[[14.437,120.488],[14.558,120.598],[14.676,120.535],[14.802,120.530],[14.876,120.462],[14.621,120.578]];
+  return Math.max(0,1-Math.min(...pts.map(p=>hav(la,lo,p[0],p[1])))/18);
+}
+function zonSc(la,lo,pref){
+  let best=0;
+  MUNICIPALITIES.forEach(m=>{
+    const match=m.zoning.some(z=>pref.includes(z.toLowerCase()))?1.0:.25;
+    best=Math.max(best,match*Math.max(0,1-hav(la,lo,m.lat,m.lng)/12));
+  });
+  return best;
+}
+function costSc(la,lo){
+  let minD=Infinity,nearZ=12000;
+  MUNICIPALITIES.forEach(m=>{const d=hav(la,lo,m.lat,m.lng);if(d<minD){minD=d;nearZ=(m.zonalMin+m.zonalMax)/2}});
+  return Math.max(.08,1-nearZ/27000);
+}
+function calcScore(la,lo,id){
+  const w=ASSETS[id].weights;
+  const port=ds(la,lo,INFRA.port.lat,INFRA.port.lng,28);
+  const power=Math.max(ds(la,lo,INFRA.power1.lat,INFRA.power1.lng,22),ds(la,lo,INFRA.power2.lat,INFRA.power2.lng,22)*.65);
+  const road=roadSc(la,lo);
+  const zon=zonSc(la,lo,ASSETS[id].preferred);
+  const cost=costSc(la,lo);
+  const t=w.port*port+w.power*power+w.road*road+w.zoning*zon+w.cost*cost;
+  return{total:Math.round(t*100),port:Math.round(port*100),power:Math.round(power*100),road:Math.round(road*100),zoning:Math.round(zon*100),cost:Math.round(cost*100)};
+}
+function scoreColor(s){if(s>=80)return'#00ff88';if(s>=60)return'#88ff44';if(s>=40)return'#ffcc00';if(s>=20)return'#ff6b35';return'#ff3355'}
+function zonalColor(v){if(v<800)return'#00ff88';if(v<2500)return'#88ff44';if(v<7000)return'#ffcc00';if(v<15000)return'#ff6b35';return'#ff3355'}
+
+// ══════════════════════════════════════════
+//  ASSET PLACEMENT
+// ══════════════════════════════════════════
+function selectAsset(id){
+  selAsset=id;
+  document.body.classList.add('placing');
+  document.querySelectorAll('.a-tile').forEach(t=>{
+    const on=t.dataset.id===id;
+    t.classList.toggle('sel',on);
+    if(on)t.style.setProperty('--tc',ASSETS[id].color);
+  });
+  document.querySelectorAll('.tab-btn2').forEach(b=>{b.classList.toggle('on',b.dataset.id===id)});
+  document.getElementById('tool-hint').textContent=`▶ Click map to deploy ${ASSETS[id].label} · ${ASSETS[id].sub}`;
+  if(heatOn)updateHeatmap();
+  showToast(ASSETS[id].label,ASSETS[id].desc,ASSETS[id].color);
+  switchTab('layers',document.querySelector('.tab-btn.on')||document.querySelector('.tab-btn'));
+}
+
+function onMapClick(e){
+  if(!selAsset){showToast('Select Asset','Choose an asset type from the toolbar first.','#ffcc00');return;}
+  const{lat,lng}=e.latlng;
+  if(!inBataan(lat,lng)){showToast('Out of Bounds','Click within the Province of Bataan.','#ff6b35');return;}
+  openModalPlacement(lat,lng,selAsset);
+}
+
+function inBataan(la,lo){return la>14.37&&la<14.95&&lo>120.20&&lo<120.75}
+
+function placePin(la,lo,id,skipModal){
+  const cfg=ASSETS[id];
+  const sc=calcScore(la,lo,id);
+  const col=scoreColor(sc.total);
+  const nm=nearestMuni(la,lo);
+  const icon=L.divIcon({
+    html:`<div class="amark" style="color:${cfg.color};background:rgba(0,0,0,.78)">${cfg.icon}<div class="score-badge" style="color:${col};border-color:${col}">${sc.total}</div></div>`,
+    className:'',iconSize:[34,34],iconAnchor:[17,17]
+  });
+  const marker=L.marker([la,lo],{icon,zIndexOffset:500}).addTo(map);
+  marker.bindPopup(buildPinPopup(cfg,sc,la,lo,nm),{className:'mpop',maxWidth:290});
+  const pin={id:Date.now(),assetId:id,lat:la,lng:lo,score:sc,marker,nearMuni:nm};
+  placedPins.push(pin);
+  updatePinsList();
+  const sw=document.getElementById('score-wrap');
+  sw.style.display='block';
+  const sn=document.getElementById('score-num');
+  sn.textContent=sc.total; sn.style.color=col;
+  document.getElementById('tool-hint').style.display='none';
+  showToast(`${cfg.label} Deployed`,`Score ${sc.total}/100 · ${nm.name} · ${remark(sc.total)}`,col);
+  switchTab('pins',document.querySelectorAll('.tab-btn')[1]);
+  marker.openPopup();
+}
+
+function remark(s){if(s>=80)return'Excellent — deploy now';if(s>=60)return'Good — recommended';if(s>=40)return'Moderate — review conditions';if(s>=20)return'Poor — proceed with caution';return'Avoid this location'}
+
+function nearestMuni(la,lo){
+  return MUNICIPALITIES.reduce((b,m)=>{const d=hav(la,lo,m.lat,m.lng);return(!b||d<b._d)?{...m,_d:d}:b},null);
+}
+
+function buildPinPopup(cfg,sc,la,lo,nm){
+  const col=scoreColor(sc.total);
+  const avgZ=(nm.zonalMin+nm.zonalMax)/2;
+  const szM=cfg.sizes.m;
+  const landCost=szM.sqm*avgZ;
+  const total=szM.build+landCost;
+  const roi=Math.round(total/(cfg.revenue.m||1));
+  return `<div>
+    <div class="pt" style="color:${cfg.color}">${cfg.icon} ${cfg.label} · ${cfg.sub}</div>
+    <div class="pr"><span class="pk">Score</span><span class="pv" style="font-family:'Orbitron',monospace;font-size:15px;font-weight:900;color:${col}">${sc.total}/100</span></div>
+    <div class="pr"><span class="pk">Status</span><span class="pv" style="color:${col}">${remark(sc.total)}</span></div>
+    <div class="pr"><span class="pk">Municipality</span><span class="pv">${nm.name}</span></div>
+    <div class="pr"><span class="pk">Port Access</span><span class="pv" style="color:${scoreColor(sc.port)}">${sc.port}%</span></div>
+    <div class="pr"><span class="pk">Power Grid</span><span class="pv" style="color:${scoreColor(sc.power)}">${sc.power}%</span></div>
+    <div class="pr"><span class="pk">Road Network</span><span class="pv" style="color:${scoreColor(sc.road)}">${sc.road}%</span></div>
+    <div class="pr"><span class="pk">Zoning Match</span><span class="pv" style="color:${scoreColor(sc.zoning)}">${sc.zoning}%</span></div>
+    <div class="pr"><span class="pk">Cost Efficiency</span><span class="pv" style="color:${scoreColor(sc.cost)}">${sc.cost}%</span></div>
+    <div class="pr"><span class="pk">Avg Zonal Value</span><span class="pv">₱${avgZ.toLocaleString()}/sqm</span></div>
+    <div class="pr"><span class="pk">Suggested Land (M)</span><span class="pv">${szM.sqm.toLocaleString()} sqm</span></div>
+    <div class="pr"><span class="pk">Est. Total (M scale)</span><span class="pv" style="color:var(--gold)">₱${(total/1000000).toFixed(1)}M</span></div>
+    <div class="pr"><span class="pk">Monthly Revenue (M)</span><span class="pv" style="color:var(--green)">₱${(cfg.revenue.m/1000).toFixed(0)}K/mo</span></div>
+    <div style="margin-top:8px;font-size:9px;color:var(--accent);cursor:pointer;text-align:center;padding:6px;background:rgba(0,180,255,.1);border-radius:3px;font-family:'Orbitron',monospace;letter-spacing:.1em" onclick="openModalFromRec('${cfg.id}','${nm.id}',${la},${lo})">⬡ FULL LAND CALCULATOR</div>
+  </div>`;
+}
+
+function updatePinsList(){
+  const list=document.getElementById('pins-list');
+  document.getElementById('pcb').textContent=placedPins.length?` (${placedPins.length})`:'';
+  if(!placedPins.length){list.innerHTML='<div class="no-pins">No assets deployed.<br><br>Select an asset type below<br>and click the map to place.</div>';return;}
+  list.innerHTML='';
+  [...placedPins].reverse().forEach(pin=>{
+    const cfg=ASSETS[pin.assetId],col=scoreColor(pin.score.total);
+    const div=document.createElement('div');div.className='pin-card';
+    div.innerHTML=`<div class="pch"><span class="pci">${cfg.icon}</span><div style="flex:1"><div class="pcn" style="color:${cfg.color}">${cfg.label}<br><span style="color:var(--dim);font-size:8px">${pin.nearMuni.name}</span></div></div><div class="pcs" style="color:${col}">${pin.score.total}</div><span class="pdel" onclick="delPin(${pin.id})">✕</span></div>
+    <div class="psb"><div class="psf" style="width:${pin.score.total}%;background:${col}"></div></div>
+    <div class="pcomps"><div class="cr"><span class="ck">Port</span><span class="cv" style="color:${scoreColor(pin.score.port)}">${pin.score.port}%</span></div><div class="cr"><span class="ck">Power</span><span class="cv" style="color:${scoreColor(pin.score.power)}">${pin.score.power}%</span></div><div class="cr"><span class="ck">Road</span><span class="cv" style="color:${scoreColor(pin.score.road)}">${pin.score.road}%</span></div><div class="cr"><span class="ck">Zoning</span><span class="cv" style="color:${scoreColor(pin.score.zoning)}">${pin.score.zoning}%</span></div><div class="cr"><span class="ck">Cost</span><span class="cv" style="color:${scoreColor(pin.score.cost)}">${pin.score.cost}%</span></div><div class="cr"><span class="ck">Status</span><span class="cv" style="color:${col};font-size:7px">${remark(pin.score.total).split('—')[0]}</span></div></div>
+    <div class="pcoord">${pin.lat.toFixed(4)}°N · ${pin.lng.toFixed(4)}°E</div>`;
+    div.addEventListener('click',e=>{if(e.target.classList.contains('pdel'))return;map.flyTo([pin.lat,pin.lng],13,{duration:1.2});pin.marker.openPopup()});
+    list.appendChild(div);
+  });
+}
+
+function delPin(id){
+  const i=placedPins.findIndex(p=>p.id===id);
+  if(i<0)return;
+  map.removeLayer(placedPins[i].marker);
+  placedPins.splice(i,1);
+  updatePinsList();
+  showToast('Asset Removed','Pin deleted.','#ff6b35');
+}
+
+// ══════════════════════════════════════════
+//  HEATMAP
+// ══════════════════════════════════════════
+function updateHeatmap(){
+  if(heatLayer){map.removeLayer(heatLayer);heatLayer=null}
+  if(!selAsset)return;
+  const pts=[];
+  for(let i=0;i<=26;i++)for(let j=0;j<=26;j++){
+    const la=14.38+(14.93-14.38)*(i/26),lo=120.22+(120.74-120.22)*(j/26);
+    if(!inBataan(la,lo))continue;
+    pts.push([la,lo,calcScore(la,lo,selAsset).total/100]);
+  }
+  heatLayer=L.heatLayer(pts,{radius:42,blur:32,maxZoom:13,gradient:{.0:'#ff3355',.25:'#ff6b35',.5:'#ffcc00',.75:'#88ff44',1:'#00ff88'}}).addTo(map);
+}
+
+function toggleHeatmap(){
+  heatOn=!heatOn;
+  const btn=document.getElementById('heatmap-btn');
+  btn.classList.toggle('on',heatOn);
+  if(heatOn){if(!selAsset){showToast('Select Asset First','Choose an asset type to generate the heatmap.','#ffcc00');heatOn=false;btn.classList.remove('on');return;}updateHeatmap();showToast('Heatmap On','Showing optimal zones for '+ASSETS[selAsset].label,'#00b4ff');}
+  else{if(heatLayer){map.removeLayer(heatLayer);heatLayer=null}showToast('Heatmap Off','Score overlay hidden.','#4a6278')}
+  syncToggle('heatmap',heatOn);
+}
+function toggleZones(){zonesOn=!zonesOn;const b=document.getElementById('zones-btn');b.classList.toggle('on',zonesOn);if(zonesOn)map.addLayer(zonesLayer);else map.removeLayer(zonesLayer);syncToggle('zones',zonesOn)}
+function toggleInfra(){infraOn=!infraOn;const b=document.getElementById('infra-btn');b.classList.toggle('on',infraOn);if(infraOn)map.addLayer(infraLayer);else map.removeLayer(infraLayer);syncToggle('infra',infraOn)}
+function toggleRecMarkers(){recMarkersOn=!recMarkersOn;const b=document.getElementById('recs-btn');b.classList.toggle('on',recMarkersOn);if(recMarkersOn)map.addLayer(recMarkersLayer);else map.removeLayer(recMarkersLayer)}
+
+function syncToggle(id,state){const sw=document.getElementById('tsw-'+id);if(sw){sw.classList.toggle('on',state);}}
+
+// ══════════════════════════════════════════
+//  RECS TAB
+// ══════════════════════════════════════════
+function buildRecTabs(){
+  const c=document.getElementById('rec-tabs');
+  Object.values(ASSETS).forEach(a=>{
+    const b=document.createElement('button');b.className='rat'+(a.id==='hq'?' on':'');b.dataset.id=a.id;
+    b.style.setProperty('--rc',a.color);if(a.id==='hq')b.style.color='#fff';
+    b.textContent=a.icon+' '+a.label.split(' ')[0];
+    b.onclick=()=>{
+      document.querySelectorAll('.rat').forEach(r=>{r.classList.remove('on');r.style.color=''});
+      b.classList.add('on');b.style.color='#fff';
+      buildRecCards(a.id);
+    };
+    c.appendChild(b);
+  });
+}
+
+function buildRecCards(assetId){
+  activeRecTab=assetId;
+  const cfg=ASSETS[assetId];
+  const c=document.getElementById('rec-cards');
+  c.innerHTML='';
+  RECS[assetId].forEach((rec,i)=>{
+    const muni=MUNICIPALITIES.find(m=>m.id===rec.muniId)||{};
+    const avgZ=(muni.zonalMin+muni.zonalMax)/2;
+    const szM=cfg.sizes.m;
+    const landCost=szM.sqm*avgZ;
+    const totalM=(szM.build+landCost)/1000000;
+    const col=scoreColor(rec.score);
+    const div=document.createElement('div');div.className='rec-card';
+    div.innerHTML=`<div class="rec-rank">#${i+1}</div>
+      <div class="rec-header"><span class="rec-icon">${cfg.icon}</span><div class="rec-name" style="color:${cfg.color}">${rec.name}<br><span style="color:var(--gold);font-size:8px">★ ${rec.tag}</span></div><div class="rec-score" style="color:${col}">${rec.score}</div></div>
+      <div class="rec-muni">📍 ${muni.name} &nbsp;·&nbsp; BIR Avg: ₱${avgZ.toLocaleString()}/sqm</div>
+      <div class="rec-note">${rec.note}</div>
+      <div class="rec-land"><span class="rl-key">Recommended Land (M scale)</span><span class="rl-val">${szM.sqm.toLocaleString()} sqm</span></div>
+      <div class="rec-land" style="margin-top:3px"><span class="rl-key">Est. Total Investment</span><span class="rl-val" style="color:var(--gold)">₱${totalM.toFixed(1)}M</span></div>
+      <div class="rec-land" style="margin-top:3px"><span class="rl-key">Est. Monthly Revenue</span><span class="rl-val" style="color:var(--green)">₱${(cfg.revenue.m/1000).toFixed(0)}K/mo</span></div>
+      <div class="rec-btns"><button class="rbtn" onclick="flyToRec(${rec.lat},${rec.lng})">🗺 FLY TO</button><button class="rbtn primary" onclick="openModalFromRec('${assetId}','${rec.muniId}',${rec.lat},${rec.lng})">📐 CALC LAND</button></div>`;
+    c.appendChild(div);
+  });
+}
+
+// ══════════════════════════════════════════
+//  LAND ACQUISITION SYSTEM
+// ══════════════════════════════════════════
+
+function landCompatScore(parcel, assetId) {
+  if (!assetId) return 50;
+  const w = ASSETS[assetId].weights;
+  const baseMatch = parcel.bestFor.includes(assetId) ? 32 : 0;
+  const powerComp = parcel.infrastructure.power * w.power;
+  const portComp  = parcel.infrastructure.port  * w.port;
+  const roadComp  = parcel.infrastructure.road  * w.road;
+  const avgPrice  = (parcel.priceMin + parcel.priceMax) / 2;
+  const costComp  = Math.max(0, 1 - avgPrice/25000) * w.cost * 100;
+  return Math.min(100, Math.round(baseMatch + powerComp*.45 + portComp*.45 + roadComp*.45 + costComp*.45));
+}
+
+function urgencyOrder(u){ return u==='HIGH'?0:u==='MEDIUM'?1:2 }
+
+function filteredLandOpps() {
+  let list = [...LAND_OPPS];
+  // Asset filter
+  if (landFilter.asset !== 'all') list = list.filter(p => p.bestFor.includes(landFilter.asset));
+  // Budget filter — based on median land cost (median sqm × avg price)
+  if (landFilter.budget !== 'all') {
+    list = list.filter(p => {
+      const medSqm = (p.sqmMin + p.sqmMax) / 2;
+      const muni = MUNICIPALITIES.find(m => m.id === p.muniId) || {};
+      const avgZ = (muni.zonalMin + muni.zonalMax) / 2;
+      const landCost = medSqm * avgZ / 1000000; // in M
+      if (landFilter.budget === '5m')   return landCost < 5;
+      if (landFilter.budget === '20m')  return landCost >= 5 && landCost < 20;
+      if (landFilter.budget === '50m')  return landCost >= 20 && landCost < 50;
+      if (landFilter.budget === '100m') return landCost >= 50;
+      return true;
+    });
+  }
+  // Sort
+  const sort = document.getElementById('land-sort')?.value || 'compat';
+  const assetForScore = landFilter.asset !== 'all' ? landFilter.asset : selAsset;
+  if (sort === 'compat')      list.sort((a,b) => landCompatScore(b,assetForScore) - landCompatScore(a,assetForScore));
+  if (sort === 'price_asc')   list.sort((a,b) => a.priceMin - b.priceMin);
+  if (sort === 'price_desc')  list.sort((a,b) => b.priceMax - a.priceMax);
+  if (sort === 'urgency')     list.sort((a,b) => urgencyOrder(a.urgency) - urgencyOrder(b.urgency));
+  return list;
+}
+
+function buildLandTab() {
+  renderLandCards(filteredLandOpps(), false);
+}
+
+function setLandFilter(type, val, el) {
+  landFilter[type] = val;
+  el.closest('.fpills').querySelectorAll('.fpill').forEach(p => p.classList.remove('on'));
+  el.classList.add('on');
+  applyLandFilters();
+}
+
+function applyLandFilters() {
+  renderLandCards(filteredLandOpps(), landScanDone);
+}
+
+function renderLandCards(list, highlightTop) {
+  const c = document.getElementById('land-cards');
+  const countEl = document.getElementById('land-count');
+  if (!c) return;
+  countEl.textContent = `(${list.length})`;
+  if (!list.length) {
+    c.innerHTML = '<div class="no-land">No parcels match your filters.<br>Try widening the criteria.</div>';
+    return;
+  }
+  const assetForScore = landFilter.asset !== 'all' ? landFilter.asset : selAsset;
+  c.innerHTML = '';
+  list.forEach((parcel, idx) => {
+    const muni = MUNICIPALITIES.find(m => m.id === parcel.muniId) || {};
+    const avgZ = (muni.zonalMin + muni.zonalMax) / 2;
+    const medSqm = (parcel.sqmMin + parcel.sqmMax) / 2;
+    const landCost = medSqm * avgZ;
+    const compat = landCompatScore(parcel, assetForScore);
+    const cc = scoreColor(compat);
+    const urgClass = parcel.urgency === 'HIGH' ? 'urg-high' : parcel.urgency === 'MEDIUM' ? 'urg-med' : 'urg-low';
+    const isTop = highlightTop && idx === 0;
+    const div = document.createElement('div');
+    div.className = 'land-card' + (isTop ? ' top-match' : '');
+    // Infrastructure bars
+    const infra = parcel.infrastructure;
+    const iHTML = Object.entries({Power:infra.power, Port:infra.port, Road:infra.road, Fiber:infra.fiber}).map(([k,v]) =>
+      `<div class="li-row"><span class="li-label">${k}</span><div class="li-bar"><div class="li-fill" style="width:${v}%;background:${scoreColor(v)}"></div></div><span class="li-val" style="color:${scoreColor(v)}">${v}%</span></div>`
+    ).join('');
+    // Best-for icons
+    const bfHTML = parcel.bestFor.map(id => {
+      const a = ASSETS[id];
+      const isMatch = assetForScore === id;
+      return `<span class="bf-icon${isMatch?' match':''}" title="${a.label}" onclick="selectAsset('${id}')" style="${isMatch?`color:${a.color};filter:drop-shadow(0 0 4px ${a.color})`:'color:var(--dim)'}">${a.icon}</span>`;
+    }).join('');
+    div.innerHTML = `
+      ${isTop ? `<div style="font-family:'Orbitron',monospace;font-size:8px;color:var(--gold);letter-spacing:.15em;margin-bottom:7px;display:flex;align-items:center;gap:6px"><span>★</span> BEST BUY · AUTO-SCAN RECOMMENDATION</div>` : ''}
+      <div class="lc-header">
+        <div class="lc-urgency ${urgClass}">${parcel.urgency}</div>
+        <div class="lc-name">${parcel.name}</div>
+        <div class="lc-tag">${parcel.tag}</div>
+      </div>
+      <div class="lc-meta">
+        <span class="lc-muni">📍 ${muni.name}</span>
+        <span class="lc-class">${parcel.class}</span>
+        <span class="lc-price">₱${parcel.priceMin.toLocaleString()}–₱${parcel.priceMax.toLocaleString()}/sqm</span>
+      </div>
+      ${assetForScore ? `<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><span style="font-size:8px;color:var(--dim)">COMPAT SCORE</span><div class="lc-score-bar" style="flex:1"><div class="lc-score-fill" style="width:${compat}%;background:${cc}"></div></div><span class="lc-compat" style="color:${cc}">${compat}/100</span></div>` : ''}
+      <div class="lc-bestfor"><span class="lc-bf-label">BEST FOR:</span>${bfHTML}</div>
+      <div class="lc-why collapsed" id="why-${parcel.id}">${parcel.why}</div>
+      <button onclick="toggleWhy('${parcel.id}')" style="background:transparent;border:none;color:var(--accent);font-size:8px;cursor:pointer;padding:3px 0 8px;font-family:'Orbitron',monospace;letter-spacing:.08em" id="why-btn-${parcel.id}">▼ READ FULL ANALYSIS</button>
+      <div class="lc-infra">${iHTML}</div>
+      <div style="display:flex;justify-content:space-between;font-size:8px;padding:5px 8px;background:rgba(0,0,0,.25);border-radius:3px;margin-bottom:4px">
+        <span style="color:var(--dim)">Median Land Area</span><span style="font-family:'Orbitron',monospace;color:var(--text)">${medSqm.toLocaleString()} sqm</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;font-size:8px;padding:5px 8px;background:rgba(0,0,0,.25);border-radius:3px;margin-bottom:8px">
+        <span style="color:var(--dim)">Est. Median Land Cost</span><span style="font-family:'Orbitron',monospace;color:var(--gold)">₱${(landCost/1000000).toFixed(2)}M <span style="color:var(--dim)">(@ ₱${avgZ.toLocaleString()}/sqm)</span></span>
+      </div>
+      <div style="font-size:8px;color:var(--dim);padding:4px 0 7px;line-height:1.5">🏛 Legal: ${parcel.legal}</div>
+      <div class="lc-btns">
+        <button class="lbtn" onclick="flyToLand(${parcel.lat},${parcel.lng})">🗺 FLY TO</button>
+        <button class="lbtn" onclick="analyzeLand('${parcel.id}')">📐 ANALYZE</button>
+        <button class="lbtn primary" onclick="deployOnParcel('${parcel.id}')">▶ DEPLOY HERE</button>
+      </div>`;
+    c.appendChild(div);
+  });
+}
+
+function toggleWhy(id) {
+  const el = document.getElementById('why-'+id);
+  const btn = document.getElementById('why-btn-'+id);
+  if (el.classList.contains('collapsed')) {
+    el.classList.remove('collapsed');
+    btn.textContent = '▲ COLLAPSE';
+  } else {
+    el.classList.add('collapsed');
+    btn.textContent = '▼ READ FULL ANALYSIS';
+  }
+}
+
+function flyToLand(la, lo) {
+  map.flyTo([la, lo], 14, {duration:1.4});
+  showToast('Flying to Parcel','Map centered on land opportunity','#ffcc00');
+}
+
+function analyzeLand(id) {
+  const parcel = LAND_OPPS.find(p => p.id === id);
+  if (!parcel) return;
+  const assetId = selAsset || parcel.bestFor[0];
+  openModalFromRec(assetId, parcel.muniId, parcel.lat, parcel.lng);
+  map.flyTo([parcel.lat, parcel.lng], 14, {duration:1.2});
+}
+
+function deployOnParcel(id) {
+  const parcel = LAND_OPPS.find(p => p.id === id);
+  if (!parcel) return;
+  const assetId = selAsset || parcel.bestFor[0];
+  if (!selAsset) {
+    selectAsset(assetId);
+    showToast(ASSETS[assetId].label + ' Auto-Selected', 'Asset auto-selected based on parcel compatibility. Opening land calculator.', ASSETS[assetId].color);
+  }
+  openModalPlacement(parcel.lat, parcel.lng, assetId);
+  map.flyTo([parcel.lat, parcel.lng], 14, {duration:1.2});
+}
+
+// ─── AUTO-SCAN ───
+function autoScan() {
+  const btn = document.getElementById('auto-scan-btn');
+  const lbl = document.getElementById('scan-label');
+  const icon = document.getElementById('scan-icon');
+  const status = document.getElementById('scan-status');
+
+  if (!selAsset) {
+    showToast('Select Asset First', 'Choose an asset type from LAYERS tab before auto-scanning.', '#ffcc00');
+    status.textContent = '⚠ Select an asset type first (LAYERS tab)';
+    return;
+  }
+
+  btn.classList.add('scanning'); btn.classList.remove('done');
+  lbl.textContent = 'SCANNING...';
+  icon.textContent = '◌';
+  status.classList.add('active');
+  const assetName = ASSETS[selAsset].label;
+  const phases = [
+    `Scanning 12 parcels across Province of Bataan...`,
+    `Calculating power grid compatibility for ${assetName}...`,
+    `Applying zoning matrix + RA 11453 overlay...`,
+    `Running BIR zonal cost analysis...`,
+    `Ranking by composite score for ${assetName}...`,
+    `Identifying optimal buy opportunity...`
+  ];
+  let phase = 0;
+  const interval = setInterval(() => {
+    if (phase < phases.length) { status.textContent = phases[phase++]; }
+    else {
+      clearInterval(interval);
+      // Set filter to match selected asset and sort by compat
+      landFilter.asset = selAsset;
+      document.querySelectorAll('#land-filter-asset .fpill').forEach(p => {
+        p.classList.toggle('on', p.dataset.val === selAsset || (p.dataset.val === 'all' && false));
+      });
+      document.getElementById('land-sort').value = 'compat';
+      const results = filteredLandOpps();
+      landScanDone = true;
+      btn.classList.remove('scanning'); btn.classList.add('done');
+      lbl.textContent = 'SCAN COMPLETE ✓';
+      icon.textContent = '★';
+      status.classList.remove('active');
+      status.textContent = `${results.length} parcels ranked for ${assetName} · Top pick: ${results[0]?.name||'—'}`;
+      renderLandCards(results, true);
+      // Highlight top parcel on map
+      if (results[0]) {
+        map.flyTo([results[0].lat, results[0].lng], 13, {duration:2.0});
+        setTimeout(() => showToast('★ BEST BUY IDENTIFIED', `${results[0].name} · Compat Score: ${landCompatScore(results[0], selAsset)}/100 · ${results[0].urgency} urgency · ${results[0].tag}`, '#ffcc00'), 800);
+      }
+    }
+  }, 420);
+}
+
+// ─── LAND MARKERS ON MAP ───
+function addLandMarkers() {
+  landLayer = L.layerGroup();
+  LAND_OPPS.forEach(parcel => {
+    const muni = MUNICIPALITIES.find(m => m.id === parcel.muniId) || {};
+    const avgZ = (muni.zonalMin + muni.zonalMax) / 2;
+    const urgCol = parcel.urgency === 'HIGH' ? '#ff3355' : parcel.urgency === 'MEDIUM' ? '#ff6b35' : '#4a6278';
+    const icon = L.divIcon({
+      html: `<div class="land-mk">
+        <div class="land-mk-score">₱${parcel.priceMin/1000}K–${parcel.priceMax/1000}K/sqm</div>
+        <div class="land-mk-inner" style="border-color:${urgCol};box-shadow:0 0 12px ${urgCol}40">
+          <span class="land-mk-icon">🏗</span>
+        </div>
+        <div class="land-mk-urg" style="background:${urgCol}22;border:1px solid ${urgCol}55;color:${urgCol}">${parcel.urgency}</div>
+      </div>`,
+      className: '', iconSize:[40,40], iconAnchor:[20,20]
+    });
+    L.marker([parcel.lat, parcel.lng], {icon, zIndexOffset:400})
+     .addTo(landLayer)
+     .bindPopup(buildLandPopup(parcel, muni, avgZ), {className:'mpop', maxWidth:310});
+  });
+  landLayer.addTo(map);
+}
+
+function buildLandPopup(parcel, muni, avgZ) {
+  const urgCol = parcel.urgency === 'HIGH' ? '#ff3355' : parcel.urgency === 'MEDIUM' ? '#ff6b35' : '#4a6278';
+  const bfIcons = parcel.bestFor.map(id => `${ASSETS[id].icon} ${ASSETS[id].label}`).join(' · ');
+  const medSqm = (parcel.sqmMin + parcel.sqmMax) / 2;
+  const medCost = medSqm * avgZ;
+  return `<div>
+    <div class="pt" style="color:var(--gold)">🏗 ${parcel.name}</div>
+    <div class="pr"><span class="pk">Urgency</span><span class="pv" style="color:${urgCol};font-family:'Orbitron',monospace;font-size:10px">${parcel.urgency} · ${parcel.tag}</span></div>
+    <div class="pr"><span class="pk">Municipality</span><span class="pv">${muni.name}</span></div>
+    <div class="pr"><span class="pk">Classification</span><span class="pv">${parcel.class}</span></div>
+    <div class="pr"><span class="pk">BIR Zonal</span><span class="pv">₱${avgZ.toLocaleString()}/sqm</span></div>
+    <div class="pr"><span class="pk">Market Price</span><span class="pv" style="color:var(--gold)">₱${parcel.priceMin.toLocaleString()}–₱${parcel.priceMax.toLocaleString()}/sqm</span></div>
+    <div class="pr"><span class="pk">Area Range</span><span class="pv">${parcel.sqmMin.toLocaleString()}–${parcel.sqmMax.toLocaleString()} sqm</span></div>
+    <div class="pr"><span class="pk">Median Land Cost</span><span class="pv" style="color:var(--gold)">₱${(medCost/1000000).toFixed(2)}M</span></div>
+    <div class="lp-infra">
+      ${Object.entries(parcel.infrastructure).map(([k,v])=>`<div class="lp-ibar"><div class="lp-ibar-label">${k.toUpperCase()}</div><div class="lp-ibar-val" style="color:${scoreColor(v)}">${v}%</div></div>`).join('')}
+    </div>
+    <div class="pr"><span class="pk">Best For</span><span class="pv" style="font-size:9px">${bfIcons}</span></div>
+    <div style="font-size:9px;color:var(--text);line-height:1.55;margin:8px 0;border-left:2px solid rgba(255,204,0,.3);padding-left:7px;opacity:.85">${parcel.why.substring(0,200)}...</div>
+    <div style="font-size:8px;color:var(--dim);margin-bottom:8px">🏛 ${parcel.legal}</div>
+    <div style="display:flex;gap:6px">
+      <div style="flex:1;font-family:'Orbitron',monospace;font-size:8px;letter-spacing:.07em;padding:7px;background:rgba(255,204,0,.1);border:1px solid rgba(255,204,0,.3);border-radius:3px;cursor:pointer;color:var(--gold);text-align:center" onclick="analyzeLand('${parcel.id}');closePopups()">📐 ANALYZE &amp; PRICE</div>
+      <div style="flex:1;font-family:'Orbitron',monospace;font-size:8px;letter-spacing:.07em;padding:7px;background:rgba(0,180,255,.1);border:1px solid rgba(0,180,255,.3);border-radius:3px;cursor:pointer;color:var(--accent);text-align:center" onclick="deployOnParcel('${parcel.id}');closePopups()">▶ DEPLOY HERE</div>
+    </div>
+  </div>`;
+}
+
+function closePopups() { map.closePopup(); }
+
+function toggleLandMarkers() {
+  landMarkersOn = !landMarkersOn;
+  const btn = document.getElementById('land-btn');
+  btn.classList.toggle('on', landMarkersOn);
+  if (landMarkersOn) { map.addLayer(landLayer); }
+  else { map.removeLayer(landLayer); }
+}
+
+function flyToRec(la,lo){
+  map.flyTo([la,lo],14,{duration:1.5});
+  showToast('Flying to Site','Map centered on recommended location','#00b4ff');
+}
+
+// ══════════════════════════════════════════
+//  LAND CALCULATOR MODAL
+// ══════════════════════════════════════════
+function openModalPlacement(la,lo,assetId){
+  const nm=nearestMuni(la,lo);
+  modalData={assetId,lat:la,lng:lo,muniId:nm.id,scale:'m',fromRec:false};
+  openModal(assetId,nm.name+', Bataan',la,lo);
+}
+
+function openModalFromRec(assetId,muniId,la,lo){
+  const muni=MUNICIPALITIES.find(m=>m.id===muniId)||{};
+  modalData={assetId,lat:la,lng:lo,muniId,scale:'m',fromRec:true};
+  openModal(assetId,muni.name+', Bataan',la,lo);
+  if(map)map.flyTo([la,lo],13,{duration:1.2});
+}
+
+function openModal(assetId,locLabel){
+  const cfg=ASSETS[assetId];
+  document.getElementById('m-icon').textContent=cfg.icon;
+  document.getElementById('m-asset-name').textContent=cfg.label+' · '+cfg.sub;
+  document.getElementById('m-asset-name').style.color=cfg.color;
+  document.getElementById('m-loc').textContent='📍 '+locLabel;
+  // Scale buttons
+  const ss=document.getElementById('scale-selector');ss.innerHTML='';
+  Object.entries(cfg.sizes).forEach(([k,sz])=>{
+    const d=document.createElement('div');d.className='scale-opt'+(k===modalData.scale?' sel':'');
+    d.style.setProperty('--mc',cfg.color);
+    d.innerHTML=`<div class="so-size" style="color:${cfg.color}">${sz.sqm.toLocaleString()}<span style="font-size:11px"> sqm</span></div><div class="so-label">${sz.label}</div><div class="so-units">${k==='s'?'Small':k==='m'?'Medium':'Large'}</div>`;
+    d.onclick=()=>{document.querySelectorAll('.scale-opt').forEach(o=>o.classList.remove('sel'));d.classList.add('sel');modalData.scale=k;updateModalCalc()};
+    ss.appendChild(d);
+  });
+  document.getElementById('modal-overlay').classList.add('open');
+  updateModalCalc();
+}
+
+function closeModal(){document.getElementById('modal-overlay').classList.remove('open')}
+
+function updateModalCalc(){
+  const{assetId,scale,muniId}=modalData;
+  const cfg=ASSETS[assetId];
+  const sz=cfg.sizes[scale];
+  const muni=MUNICIPALITIES.find(m=>m.id===muniId)||MUNICIPALITIES[0];
+  const avgZ=(muni.zonalMin+muni.zonalMax)/2;
+  const landCost=sz.sqm*avgZ;
+  const total=sz.build+landCost;
+  const rev=cfg.revenue[scale];
+  const roi=Math.round(total/rev);
+  const col=cfg.color;
+
+  document.getElementById('cv-sqm').textContent=sz.sqm.toLocaleString()+' sqm';
+  document.getElementById('cv-zon').textContent='₱'+avgZ.toLocaleString()+'/sqm ('+muni.name+')';
+  document.getElementById('cv-land').textContent='₱'+Math.round(landCost).toLocaleString();
+  document.getElementById('cv-build').textContent='₱'+sz.build.toLocaleString();
+  document.getElementById('cv-units').textContent=sz.units;
+  document.getElementById('total-val').textContent='₱'+(total/1000000).toFixed(2)+'M';
+  document.getElementById('total-val').style.color=col;
+  document.getElementById('cv-rev').textContent='₱'+rev.toLocaleString()+'/mo';
+  document.getElementById('cv-roi').textContent=roi+' months ('+Math.round(roi/12)+' yrs)';
+  document.getElementById('roi-val').textContent='₱'+rev.toLocaleString()+'/mo';
+  document.getElementById('rev-note').textContent=cfg.revenue.note;
+  document.querySelectorAll('.scale-opt').forEach((o,i)=>{o.style.setProperty('--mc',col)});
+  document.getElementById('modal-place-btn').style.background=`linear-gradient(135deg,${col}33,${col}18)`;
+  document.getElementById('modal-place-btn').style.borderColor=col+'88';
+}
+
+function placePinFromModal(){
+  const{assetId,lat,lng}=modalData;
+  closeModal();
+  placePin(lat,lng,assetId,true);
+}
+
+// ══════════════════════════════════════════
+//  SIDEBAR UI
+// ══════════════════════════════════════════
+function buildSidebarAssets(){
+  const g=document.getElementById('sg');
+  Object.values(ASSETS).forEach(a=>{
+    const t=document.createElement('div');t.className='a-tile';t.dataset.id=a.id;
+    t.innerHTML=`<span class="a-tile-icon">${a.icon}</span><div class="a-tile-name">${a.label}</div><div class="a-tile-sub" style="color:${a.color}">${a.sub}</div>`;
+    t.onclick=()=>selectAsset(a.id);g.appendChild(t);
+  });
+}
+
+function buildToolbar(){
+  const b=document.getElementById('toolbar-assets');
+  Object.values(ASSETS).forEach(a=>{
+    const d=document.createElement('div');d.className='tab-btn2';d.dataset.id=a.id;
+    d.style.setProperty('--bc',a.color);
+    d.innerHTML=`<span class="ti2">${a.icon}</span><span class="tn2">${a.label}</span>`;
+    d.onclick=()=>selectAsset(a.id);b.appendChild(d);
+  });
+}
+
+function buildLayerList(){
+  const list=document.getElementById('layer-list');
+  [
+    {id:'zones',label:'Municipality Zones',color:'#88ff44',on:true},
+    {id:'infra',label:'Infrastructure',color:'#00b4ff',on:true},
+    {id:'heatmap',label:'Composite Heatmap',color:'#ff6b35',on:false},
+  ].forEach(l=>{
+    const r=document.createElement('div');r.className='lrow';
+    r.innerHTML=`<div class="ldot" style="background:${l.color}"></div><span class="lname">${l.label}</span><div class="tsw ${l.on?'on':''}" id="tsw-${l.id}"><div class="tth"></div></div>`;
+    r.onclick=()=>{
+      if(l.id==='heatmap')toggleHeatmap();
+      else if(l.id==='zones')toggleZones();
+      else if(l.id==='infra')toggleInfra();
+    };
+    list.appendChild(r);
+  });
+}
+
+function buildMuniList(){
+  const c=document.getElementById('muni-list');
+  [...MUNICIPALITIES].sort((a,b)=>b.zonalMax-a.zonalMax).forEach(m=>{
+    const avg=(m.zonalMin+m.zonalMax)/2,col=zonalColor(avg);
+    const d=document.createElement('div');d.className='muni-card';
+    d.innerHTML=`<div class="mn">${m.name}</div><div class="mm"><span>${m.zoning[0]}</span><span class="mz" style="color:${col}">₱${m.zonalMin.toLocaleString()}–₱${m.zonalMax.toLocaleString()}</span></div><div style="display:flex;gap:10px;margin-top:4px"><div style="flex:1;font-size:8px;color:var(--dim)">Pop: <span style="color:var(--text)">${m.pop.toLocaleString()}</span></div><div style="font-size:8px;color:var(--dim)">Area: <span style="color:var(--text)">${m.areaHa.toLocaleString()} ha</span></div></div>`;
+    d.onclick=()=>{map.flyTo([m.lat,m.lng],13,{duration:1.5});showToast(m.name,'BIR: ₱'+m.zonalMin.toLocaleString()+'–₱'+m.zonalMax.toLocaleString()+'/sqm · '+m.pop.toLocaleString()+' pop',col)};
+    c.appendChild(d);
+  });
+}
+
+function buildMuniPopup(m){
+  const avg=(m.zonalMin+m.zonalMax)/2;
+  return`<div><div class="pt">📍 ${m.name}</div>
+    <div class="pr"><span class="pk">Population</span><span class="pv">${m.pop.toLocaleString()}</span></div>
+    <div class="pr"><span class="pk">Area</span><span class="pv">${m.areaHa.toLocaleString()} ha</span></div>
+    <div class="pr"><span class="pk">BIR Zonal Range</span><span class="pv">₱${m.zonalMin.toLocaleString()}–₱${m.zonalMax.toLocaleString()}/sqm</span></div>
+    <div class="pr"><span class="pk">Avg Zonal</span><span class="pv" style="color:${zonalColor(avg)}">₱${avg.toLocaleString()}/sqm</span></div>
+    <div class="pr"><span class="pk">Zoning</span><span class="pv">${m.zoning.join(' · ')}</span></div>
+    <div class="pr"><span class="pk">Key Features</span><span class="pv" style="max-width:140px;text-align:right;font-size:9px">${m.features.join(', ')}</span></div>
+    <div class="pr"><span class="pk">Power Grid</span><span class="pv" style="color:${scoreColor(m.powerScore*100)}">${Math.round(m.powerScore*100)}%</span></div>
+    <div class="pr"><span class="pk">Port Access</span><span class="pv" style="color:${scoreColor(m.portScore*100)}">${Math.round(m.portScore*100)}%</span></div>
+    <div class="pr"><span class="pk">Road Access</span><span class="pv" style="color:${scoreColor(m.roadScore*100)}">${Math.round(m.roadScore*100)}%</span></div>
+  </div>`;
+}
+
+function switchTab(name,btn){
+  document.querySelectorAll('.tc').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('on'));
+  document.getElementById('tab-'+name).classList.add('on');
+  if(btn)btn.classList.add('on');
+  else{const m={layers:0,pins:1,recs:2,data:3};document.querySelectorAll('.tab-btn')[m[name]]?.classList.add('on')}
+}
+
+// Toast
+let tT;
+function showToast(title,body,color='#00b4ff'){
+  const el=document.getElementById('toast');
+  document.getElementById('tt').textContent=title;document.getElementById('tt').style.color=color;
+  document.getElementById('tb').textContent=body;
+  el.style.borderLeftColor=color;el.classList.add('show');
+  clearTimeout(tT);tT=setTimeout(()=>el.classList.remove('show'),4000);
+}
+</script>
+</body>
+</html>

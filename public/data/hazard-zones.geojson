@@ -1,0 +1,50 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": { "type": "flood", "level": "high", "municipality": "Mariveles", "description": "Coastal flood zone near Port of Mariveles — storm surge risk during typhoon season (PAGASA Category 3+)" },
+      "geometry": { "type": "Polygon", "coordinates": [[[120.480,14.430],[120.500,14.430],[120.500,14.445],[120.480,14.445],[120.480,14.430]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "type": "liquefaction", "level": "high", "municipality": "Mariveles", "description": "High liquefaction susceptibility — reclaimed land along Mariveles bay. Deep foundation required for Forge/HQ." },
+      "geometry": { "type": "Polygon", "coordinates": [[[120.465,14.435],[120.480,14.435],[120.480,14.448],[120.465,14.448],[120.465,14.435]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "type": "flood", "level": "medium", "municipality": "Limay", "description": "Moderate flood risk along Limay River corridor during heavy rain events (>150mm/24hrs)" },
+      "geometry": { "type": "Polygon", "coordinates": [[[120.585,14.540],[120.610,14.540],[120.610,14.560],[120.585,14.560],[120.585,14.540]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "type": "storm_surge", "level": "high", "municipality": "Orion", "description": "Storm surge zone — 3m inundation risk for Category 4+ typhoons along Manila Bay coastline" },
+      "geometry": { "type": "Polygon", "coordinates": [[[120.560,14.610],[120.590,14.610],[120.590,14.635],[120.560,14.635],[120.560,14.610]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "type": "flood", "level": "high", "municipality": "Samal", "description": "Pampanga River delta floodplain — annual inundation risk during monsoon. PAGASA 5-year flood plain." },
+      "geometry": { "type": "Polygon", "coordinates": [[[120.530,14.755],[120.570,14.755],[120.570,14.785],[120.530,14.785],[120.530,14.755]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "type": "liquefaction", "level": "medium", "municipality": "Balanga", "description": "Moderate liquefaction susceptibility in low-lying areas of Balanga City near river systems" },
+      "geometry": { "type": "Polygon", "coordinates": [[[120.520,14.665],[120.550,14.665],[120.550,14.690],[120.520,14.690],[120.520,14.665]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "type": "flood", "level": "low", "municipality": "Hermosa", "description": "Low flood risk zone — elevated terrain reduces flooding. Minor creek overflow risk only." },
+      "geometry": { "type": "Polygon", "coordinates": [[[120.490,14.820],[120.520,14.820],[120.520,14.845],[120.490,14.845],[120.490,14.820]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "type": "storm_surge", "level": "medium", "municipality": "Abucay", "description": "Moderate storm surge risk along Abucay Bay — 1.5m inundation for Category 3 typhoons" },
+      "geometry": { "type": "Polygon", "coordinates": [[[120.510,14.720],[120.540,14.720],[120.540,14.745],[120.510,14.745],[120.510,14.720]]] }
+    },
+    {
+      "type": "Feature",
+      "properties": { "type": "flood", "level": "low", "municipality": "Morong", "description": "Low flood risk — elevated plateau terrain. Primary hazard is landslide on steep slopes, not flooding." },
+      "geometry": { "type": "Polygon", "coordinates": [[[120.240,14.680],[120.280,14.680],[120.280,14.705],[120.240,14.705],[120.240,14.680]]] }
+    }
+  ]
+}

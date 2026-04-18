@@ -1,0 +1,13 @@
+municipality,avg_bir_sqm,risk_score,grid_access,sez_status,parcels_available
+Mariveles,8500,88,95,SBFZ / RA 11453,4
+Balanga City,15000,92,95,None,2
+Limay,4750,82,88,Limay Ind. Zone,2
+Orion,3500,78,75,None,1
+Samal,1150,65,65,None,1
+Abucay,1450,70,68,None,1
+Orani,2300,72,72,None,0
+Hermosa,1750,80,70,BCDA Subzone,1
+Dinalupihan,2900,82,78,BCDA Technopark,1
+Pilar,1450,60,60,None,0
+Morong,850,55,55,None,1
+Bagac,700,52,50,None,1

@@ -1,0 +1,13 @@
+parcel_id,municipality,lat,lng,bir_value_sqm,risk_score,asset_class,grid_access,road_proximity,zoning,notes,status
+P001,Mariveles,14.446,120.465,8500,95,forge,95,85,Industrial/Freeport,SBFZ Block A - duty-free RA 11453,available
+P002,Mariveles,14.445,120.496,12000,90,hq,90,90,Commercial,TESDA vicinity - prime CBD,available
+P003,Mariveles,14.452,120.478,6000,88,haven,88,80,Residential,RA 11453 expansion zone,available
+P004,Limay,14.543,120.594,5500,82,forge,88,78,Industrial,NPC power plant adjacent,available
+P005,Morong,14.693,120.253,800,55,solar,55,48,Agricultural,South-facing plateau - max solar hours,available
+P006,Bagac,14.590,120.375,600,52,solar,50,45,Agricultural/Eco,Bay-facing open terrain,available
+P007,Hermosa,14.829,120.508,2500,80,solar,70,78,Industrial/BCDA,BCDA zone income tax holiday,available
+P008,Dinalupihan,14.877,120.458,4000,82,hq,78,90,Commercial,NLEX gateway frontage,available
+P009,Orion,14.622,120.575,5000,78,haven,75,70,Residential,Manila Bay waterfront,available
+P010,Balanga,14.678,120.536,20000,92,hq,95,95,Commercial,Capitol district premium,available
+P011,Samal,14.770,120.545,1200,65,solar,65,72,Agricultural,Flat agri-land solar optimal,available
+P012,Abucay,14.735,120.524,2200,70,haven,68,68,Residential/Coastal,Abucay Bay coastal strip,available
