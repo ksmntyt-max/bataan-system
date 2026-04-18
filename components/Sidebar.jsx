@@ -1,21 +1,49 @@
 'use client'
 
 import { useState } from 'react'
-import { ASSETS, RECS, LAND_OPPS, MUNICIPALITIES } from '@/lib/data'
+import { ASSETS, RECS, LAND_OPPS, MUNICIPALITIES, SOVEREIGN_PROFILES, OMNIMESH_NODES } from '@/lib/data'
 import { landCompatScore, scoreColor, zonalColor, formatPHP } from '@/lib/scoring'
 
-const TABS = ['LAYERS', 'PINS', 'RECS', 'LAND', 'DATA']
+const TABS = ['LAYERS', 'PINS', 'RECS', 'LAND', 'DATA', 'ECO']
+
+const SIM_MODES = {
+  sandbox: { label:'01·SANDBOX', color:'#00b4ff', desc:'Explore & recon mode — map analysis, parcel scanning, feasibility. Build your intel picture before committing capital.' },
+  sim:     { label:'02·SIM',     color:'#00ff88', desc:'Simulation mode — deploy assets, run composite scoring, compare site scenarios across the province. No commitments.' },
+  mint:    { label:'03·MINT',    color:'#ffcc00', desc:'Firmamint prep — register the Bataan shard, stake $CIK, initiate Proof of Sowing sequence and validator onboarding.' },
+  settle:  { label:'04·SETTLE',  color:'#9c44ff', desc:'Settlement mode — T0→T1 pathway, LGU engagement tracking, permit submission, first Haven settlers onboarded.' },
+}
+
+const LADDER_STEPS = [
+  { icon:'🏗', label:'Land Secured',       sub:'Identify & acquire target parcels',                status:'active'  },
+  { icon:'🤝', label:'LGU Alignment',      sub:'Engage barangay → municipality → province',         status:'next'    },
+  { icon:'⛓', label:'Shard Registration', sub:'Bataan Firmamint node initialization + $CIK stake', status:'locked'  },
+  { icon:'🏘', label:'Settlement T1',      sub:'First Haven settlers onboarded (Firma residency)',  status:'locked'  },
+  { icon:'🏛', label:'Full Sovereignty',   sub:'Nation of Heaven EDGE node recognized',             status:'locked'  },
+]
+
+const FIRMA_PRODUCTS = [
+  { id:'seedbase', label:'SeedBase HQ',    icon:'🏛', status:'planned', color:'#00b4ff' },
+  { id:'haven',    label:'Haven Village',  icon:'🏘', status:'planned', color:'#00ff88' },
+  { id:'forge',    label:'Steel Forge',    icon:'⛏', status:'planned', color:'#ff6b35' },
+  { id:'solar',    label:'Solar Grid',     icon:'☀', status:'planned', color:'#ffcc00' },
+  { id:'mesh',     label:'OmniMesh Node',  icon:'📡', status:'future',  color:'#9c44ff' },
+  { id:'elemint',  label:'Elemint XPLR',   icon:'💎', status:'future',  color:'#00ff88' },
+  { id:'shard',    label:'Firmamint Shard',icon:'⛓', status:'future',  color:'#ffcc00' },
+  { id:'figcash',  label:'FIG Cash',       icon:'💳', status:'future',  color:'#00b4ff' },
+]
 
 export default function Sidebar({
   selectedAsset, onAssetChange,
   heatmapOn, zonesOn, infraOn, recsOn, landOn,
   onToggleHeatmap, onToggleZones, onToggleInfra, onToggleRecs, onToggleLand,
   hazardOn, clupOn, onToggleHazard, onToggleClup,
+  sovereignOn, omnimeshOn, onToggleSovereign, onToggleOmnimesh,
   deployedPins, onPinDelete, onFlyToRec,
   onOpenCalc,
 }) {
   const [tab, setTab]           = useState(0)
   const [recAsset, setRecAsset] = useState('hq')
+  const [simMode, setSimMode]   = useState('sandbox')
   const [landFilter, setLandFilter] = useState({ asset: 'all', budget: 'all', sort: 'compat' })
   const [scanning, setScanning] = useState(false)
   const [scanMsg, setScanMsg]   = useState('Select an asset type first to enable asset-specific scan')
@@ -67,7 +95,7 @@ export default function Sidebar({
     <div id="sidebar">
       <div className="tab-bar">
         {TABS.map((t, i) => (
-          <button key={t} className={`tab-btn${tab === i ? ' on' : ''}${t === 'LAND' ? ' land-tab' : ''}`} onClick={() => setTab(i)}>
+          <button key={t} className={`tab-btn${tab === i ? ' on' : ''}${t === 'LAND' ? ' land-tab' : ''}${t === 'ECO' ? ' eco-tab' : ''}`} onClick={() => setTab(i)}>
             {t}{t === 'PINS' && deployedPins?.length ? <span className="pin-count">{deployedPins.length}</span> : null}
           </button>
         ))}
@@ -108,8 +136,10 @@ export default function Sidebar({
 
           <div className="shd" style={{marginTop:6}}>NEW DATA LAYERS</div>
           {[
-            { label:'Hazard Zones', desc:'PHIVOLCS flood, storm surge & liquefaction risk areas', on: hazardOn, toggle: onToggleHazard, dot: '#ff3355' },
-            { label:'CLUP Zoning',  desc:'Municipal land use plan — Agri, Industrial, Commercial, Protected', on: clupOn, toggle: onToggleClup, dot: '#9c44ff' },
+            { label:'Hazard Zones',     desc:'PHIVOLCS flood, storm surge & liquefaction risk areas',              on: hazardOn,    toggle: onToggleHazard,    dot: '#ff3355' },
+            { label:'CLUP Zoning',      desc:'Municipal land use plan — Agri, Industrial, Commercial, Protected',   on: clupOn,      toggle: onToggleClup,      dot: '#9c44ff' },
+            { label:'Sovereign Layer',  desc:'LGU alignment status & permit pathway readiness per parcel',          on: sovereignOn, toggle: onToggleSovereign, dot: '#00ff88' },
+            { label:'OmniMesh Network', desc:'Node/Sentinel/Pulse/Whisper topology — planned mesh coverage map',   on: omnimeshOn,  toggle: onToggleOmnimesh,  dot: '#00b4ff' },
           ].map(l => (
             <div key={l.label} className="lrow" onClick={l.toggle}>
               <div className={`tsw${l.on ? ' on' : ''}`}><div className="tth" /></div>
@@ -231,6 +261,8 @@ export default function Sidebar({
           </div>
           {filteredParcels().map((p, i) => {
             const urgClass = p.urgency === 'HIGH' ? 'urg-high' : p.urgency === 'MEDIUM' ? 'urg-med' : 'urg-low'
+            const sp = SOVEREIGN_PROFILES[p.id]
+            const readColor = sp ? (sp.readiness >= 75 ? '#00ff88' : sp.readiness >= 45 ? '#ffcc00' : '#ff3355') : null
             return (
               <div key={p.id} className={`land-card${i === 0 && scanDone ? ' top-match' : ''}`}>
                 <div className="lc-header">
@@ -245,10 +277,20 @@ export default function Sidebar({
                 </div>
                 <div className="lc-compat">
                   COMPAT: <span style={{color: scoreColor(p._compat)}}>{p._compat}/100</span>
+                  {sp && <span className="lc-pathway" style={{color: readColor}}>· PATH: {sp.readiness}%</span>}
                 </div>
                 <div className="lc-score-bar">
                   <div className="lc-score-fill" style={{width:`${p._compat}%`, background: scoreColor(p._compat)}} />
                 </div>
+                {sp && (
+                  <div className="lc-sovereign-row">
+                    {Object.entries(sp.alignment).map(([tier, status]) => {
+                      const ic = status === 'engaged' ? '✓' : status === 'pending' ? '◌' : status === 'opposed' ? '✕' : '—'
+                      const cl = status === 'engaged' ? '#00ff88' : status === 'pending' ? '#ffcc00' : status === 'opposed' ? '#ff3355' : '#4a6278'
+                      return <span key={tier} className="lc-sov-chip" style={{color: cl}}>{ic} {tier.slice(0,3).toUpperCase()}</span>
+                    })}
+                  </div>
+                )}
                 <div className="lc-why collapsed">{p.why}</div>
                 <div className="lc-btns">
                   <a className="lbtn" href={`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${p.lat},${p.lng}`} target="_blank" rel="noopener noreferrer">📍 Street View</a>
@@ -278,6 +320,112 @@ export default function Sidebar({
             )
           })}
           <div className="ds" style={{marginTop:8}}>Sources: BIR Zonal Values 2024 · Bataan 2026 SMV · PSA Census 2020 · SBMA/SBFZ · RA 11453</div>
+        </div>
+      )}
+
+      {/* ECOSYSTEM */}
+      {tab === 5 && (
+        <div className="tc on">
+
+          {/* NS Sim Mode Bar */}
+          <div className="shd">NS SIM MODE</div>
+          <div className="sim-mode-bar">
+            {Object.entries(SIM_MODES).map(([k, m]) => (
+              <button key={k} className={`smode-btn${simMode === k ? ' on' : ''}`}
+                style={{'--smc': m.color}} onClick={() => setSimMode(k)}>
+                {m.label}
+              </button>
+            ))}
+          </div>
+          <div className="sim-mode-desc" style={{borderColor: SIM_MODES[simMode].color + '44', color: SIM_MODES[simMode].color}}>
+            {SIM_MODES[simMode].desc}
+          </div>
+
+          {/* Sovereignty Ladder */}
+          <div className="shd" style={{marginTop:8}}>SOVEREIGNTY LADDER <span style={{color:'var(--gold)',fontSize:8,marginLeft:4}}>BATAAN — STEP 1</span></div>
+          <div className="ladder-wrap">
+            {LADDER_STEPS.map((step, i) => (
+              <div key={i} className={`ladder-step ${step.status}`}>
+                <div className="ladder-num">{i + 1}</div>
+                <div className="ladder-icon">{step.icon}</div>
+                <div className="ladder-info">
+                  <div className="ladder-label">{step.label}</div>
+                  <div className="ladder-sub">{step.sub}</div>
+                </div>
+                {step.status === 'active' && <div className="ladder-pulse" />}
+              </div>
+            ))}
+          </div>
+
+          {/* Firma Product Grid */}
+          <div className="shd" style={{marginTop:8}}>FIRMA PRODUCT ACTIVATION</div>
+          <div className="product-grid">
+            {FIRMA_PRODUCTS.map(prod => (
+              <div key={prod.id} className={`product-tile ${prod.status}`} style={{'--pc': prod.color}}>
+                <span className="product-icon">{prod.icon}</span>
+                <span className="product-name">{prod.label}</span>
+                <span className={`product-status ${prod.status}`}>{prod.status === 'planned' ? 'PLANNED' : 'FUTURE'}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Firmamint Chain Status */}
+          <div className="shd" style={{marginTop:8}}>FIRMAMINT CHAIN STATUS</div>
+          <div className="chain-panel">
+            <div className="chain-row"><span className="ck">Shard</span><span className="chain-val accent">BATAAN-ALPHA</span></div>
+            <div className="chain-row"><span className="ck">Status</span><span className="chain-val" style={{color:'#ffcc00'}}>PRE-MINT</span></div>
+            <div className="chain-row"><span className="ck">Validators</span><span className="chain-val">0 / 3 needed</span></div>
+            <div className="chain-row"><span className="ck">Proof of Sowing</span><span className="chain-val">Pending</span></div>
+            <div className="chain-row"><span className="ck">$CIK Staked</span><span className="chain-val">0</span></div>
+            <div className="chain-row"><span className="ck">Est. Mint</span><span className="chain-val" style={{color:'#9c44ff'}}>Q3 2026</span></div>
+            <div className="chain-row highlight"><span className="ck">Next Milestone</span><span className="chain-val" style={{color:'#00ff88',fontSize:9}}>LGU Resolution + Site Acquisition</span></div>
+          </div>
+
+          {/* Three-Currency Economy */}
+          <div className="shd" style={{marginTop:8}}>THREE-CURRENCY ECONOMY</div>
+          <div className="currency-flow">
+            <div className="currency-node" style={{'--cnc':'#00b4ff'}}>
+              <div className="cn-icon">💵</div>
+              <div className="cn-label">FIG CASH</div>
+              <div className="cn-sub">Fiat In-Gateway</div>
+              <div className="cn-status" style={{color:'#ffcc00'}}>SETUP STAGE</div>
+            </div>
+            <div className="currency-arrow">→</div>
+            <div className="currency-node" style={{'--cnc':'#ffcc00'}}>
+              <div className="cn-icon">⛓</div>
+              <div className="cn-label">$CIK TOKEN</div>
+              <div className="cn-sub">Sovereign Utility</div>
+              <div className="cn-status" style={{color:'#ff6b35'}}>PRE-DIST.</div>
+            </div>
+            <div className="currency-arrow">→</div>
+            <div className="currency-node" style={{'--cnc':'#00ff88'}}>
+              <div className="cn-icon">🏘</div>
+              <div className="cn-label">LOCAL FIG</div>
+              <div className="cn-sub">Bataan Node</div>
+              <div className="cn-status" style={{color:'#4a6278'}}>POST-SHARD</div>
+            </div>
+          </div>
+
+          {/* OmniMesh Status */}
+          <div className="shd" style={{marginTop:8}}>OMNIMESH STATUS <span style={{color:'#00b4ff',fontSize:8,marginLeft:4}}>{OMNIMESH_NODES.filter(n=>n.status==='active').length} ACTIVE</span></div>
+          {OMNIMESH_NODES.map(node => {
+            const col = {Node:'#00b4ff',Sentinel:'#00ff88',Pulse:'#ff6b35',Whisper:'#9c44ff'}[node.type] || '#fff'
+            const stCol = node.status === 'active' ? '#00ff88' : node.status === 'planned' ? '#ffcc00' : '#4a6278'
+            return (
+              <div key={node.id} className="mesh-card">
+                <div className="mesh-card-row">
+                  <div className="mesh-card-dot" style={{background: col}} />
+                  <div className="mesh-card-info">
+                    <span className="mesh-card-name" style={{color: col}}>{node.label}</span>
+                    <span className="mesh-card-type">{node.type}</span>
+                  </div>
+                  <span className="mesh-card-status" style={{color: stCol}}>{node.status.toUpperCase()}</span>
+                </div>
+              </div>
+            )
+          })}
+
+          <div className="ds" style={{marginTop:8}}>Firma EDGE Engine v1.2 · Nation of Heaven Infrastructure Protocol · Bataan Alpha Node</div>
         </div>
       )}
     </div>

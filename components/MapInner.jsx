@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { MUNICIPALITIES, INFRA, ASSETS, RECS, LAND_OPPS, BATAAN_OUTLINE } from '@/lib/data'
+import { MUNICIPALITIES, INFRA, ASSETS, RECS, LAND_OPPS, BATAAN_OUTLINE, SOVEREIGN_PROFILES, OMNIMESH_NODES } from '@/lib/data'
 import { calcScore, landCompatScore, scoreColor, zonalColor, formatPHP } from '@/lib/scoring'
 
 const HAZARD_COLORS = {
@@ -18,11 +18,15 @@ const ZONE_COLORS = {
   Protected:   'rgba(255,51,85,.42)',
 }
 
+const OMNIMESH_COLORS = { Node:'#00b4ff', Sentinel:'#00ff88', Pulse:'#ff6b35', Whisper:'#9c44ff' }
+
 export default function MapInner({
-  selectedAsset, onAssetChange,
+  selectedAsset,
   heatmapOn, zonesOn, infraOn, recsOn, landOn,
+  sovereignOn, omnimeshOn,
   onParcelSelect, onScoreUpdate,
   csvParcels, deployedPins, onPinDeploy, onPinRemove,
+  flyTarget,
 }) {
   const mapRef          = useRef(null)
   const mapInstance     = useRef(null)
@@ -36,7 +40,10 @@ export default function MapInner({
     if (mapInstance.current) return
     try { require('leaflet.heat') } catch (_) {}
 
-    const map = L.map(mapRef.current, { center: [14.65, 120.47], zoom: 11, zoomControl: true, attributionControl: false })
+    const map = L.map(mapRef.current, {
+      center: [14.65, 120.47], zoom: 11, minZoom: 8, zoomControl: true, attributionControl: false,
+      maxBounds: [[13.2, 118.8], [16.5, 122.2]], maxBoundsViscosity: 0.85,
+    })
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd' }).addTo(map)
     L.control.attribution({ prefix: '<span style="color:#3a5268;font-size:9px">© CartoDB · BIR SMV · PSA · SBMA · BLIS v1.2</span>' }).addTo(map)
     mapInstance.current = map
@@ -152,6 +159,52 @@ export default function MapInner({
       layers.current.heatmap = L.heatLayer(heatPoints, { radius: 35, blur: 22, maxZoom: 13, gradient: { 0: '#00ff88', .4: '#ffcc00', .7: '#ff6b35', 1: '#ff3355' } })
     }
 
+    // Sovereign Engagement layer
+    const sovereignLayer = L.layerGroup()
+    LAND_OPPS.forEach(p => {
+      const sp = SOVEREIGN_PROFILES[p.id]
+      if (!sp) return
+      const col = sp.readiness >= 75 ? '#00ff88' : sp.readiness >= 45 ? '#ffcc00' : '#ff3355'
+      const alignEntries = Object.entries(sp.alignment)
+      const opposed = alignEntries.some(([,v]) => v === 'opposed')
+      const ringCol = opposed ? '#ff3355' : col
+      L.circle([p.lat, p.lng], {
+        radius: 650, color: ringCol, weight: 2.5, fillColor: ringCol, fillOpacity: 0.06, dashArray: '6,4',
+      }).bindPopup(buildSovereignPopup(p, sp), { className: 'mpop', maxWidth: 330 }).addTo(sovereignLayer)
+    })
+    layers.current.sovereign = sovereignLayer
+
+    // OmniMesh Network layer
+    const omnimeshLayer = L.layerGroup()
+    const activeNodes = OMNIMESH_NODES.filter(n => n.status === 'active')
+    activeNodes.forEach((a, i) => {
+      activeNodes.forEach((b, j) => {
+        if (j <= i) return
+        L.polyline([[a.lat, a.lng], [b.lat, b.lng]], {
+          color: 'rgba(0,180,255,.22)', weight: 1.5, dashArray: '3,6',
+        }).addTo(omnimeshLayer)
+      })
+    })
+    OMNIMESH_NODES.forEach(node => {
+      const col = OMNIMESH_COLORS[node.type] || '#fff'
+      const opacity = node.status === 'active' ? 1 : node.status === 'planned' ? 0.55 : 0.30
+      const icon = L.divIcon({
+        html: `<div class="mesh-marker" style="--mc:${col};opacity:${opacity}">
+          <div class="mesh-dot"></div>
+          <div class="mesh-ring"></div>
+          <div class="mesh-lbl">${node.type}</div>
+        </div>`,
+        className: '', iconSize: [36, 36], iconAnchor: [18, 18],
+      })
+      L.marker([node.lat, node.lng], { icon, zIndexOffset: 350 })
+        .bindPopup(`<div class="pt" style="color:${col}">📡 ${node.label}</div>
+          <div class="pr"><span class="pk">Type</span><span class="pv">${node.type}</span></div>
+          <div class="pr"><span class="pk">Status</span><span class="pv" style="color:${node.status === 'active' ? '#00ff88' : node.status === 'planned' ? '#ffcc00' : '#4a6278'}">${node.status.toUpperCase()}</span></div>
+          <div style="font-size:9px;color:#ccd8e8;line-height:1.55;margin-top:6px">${node.note}</div>`, { className: 'mpop', maxWidth: 280 })
+        .addTo(omnimeshLayer)
+    })
+    layers.current.omnimesh = omnimeshLayer
+
     // Load GeoJSON layers
     fetch('/data/hazard-zones.geojson').then(r => r.json()).then(data => {
       const hazLayer = L.geoJSON(data, {
@@ -219,8 +272,17 @@ export default function MapInner({
   useEffect(() => { toggleLayer('recs',    recsOn)    }, [recsOn])
   useEffect(() => { toggleLayer('land',    landOn)    }, [landOn])
   useEffect(() => { toggleLayer('heatmap', heatmapOn) }, [heatmapOn])
-  useEffect(() => { toggleLayer('hazard',  false)     }, []) // off by default, controlled externally
+  useEffect(() => { toggleLayer('hazard',   false)     }, []) // off by default, controlled externally
   useEffect(() => { toggleLayer('clup',    false)     }, []) // off by default
+  useEffect(() => { toggleLayer('sovereign', sovereignOn) }, [sovereignOn])
+  useEffect(() => { toggleLayer('omnimesh',  omnimeshOn)  }, [omnimeshOn])
+
+  // Fly to target when requested from sidebar
+  useEffect(() => {
+    if (flyTarget && mapInstance.current) {
+      mapInstance.current.flyTo([flyTarget.lat, flyTarget.lng], 15, { duration: 1.4 })
+    }
+  }, [flyTarget])
 
   useEffect(() => {
     placing.current = !!selectedAsset
@@ -238,7 +300,7 @@ export default function MapInner({
     else     map.removeLayer(layer)
   }
 
-  // Expose toggle for hazard/clup from parent
+  // Expose toggle for external layers (hazard/clup/sovereign/omnimesh)
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.__blisToggleLayer = (name, on) => toggleLayer(name, on)
@@ -345,6 +407,21 @@ function buildLandPopup(p) {
     <div class="pr"><span class="pk">Legal</span><span class="pv" style="font-size:9px">${p.legal}</span></div>
     <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${p.lat},${p.lng}" target="_blank" style="display:block;margin-top:8px;padding:6px 10px;background:rgba(0,200,100,.15);border:1px solid rgba(0,200,100,.4);border-radius:4px;color:#00ff88;text-decoration:none;font-size:10px;text-align:center">📍 Open Street View</a>
     <div style="font-size:9px;color:#ccd8e8;line-height:1.5;margin-top:6px;border-top:1px solid rgba(255,255,255,.06);padding-top:6px">${p.why.slice(0, 180)}…</div>`
+}
+
+function buildSovereignPopup(p, sp) {
+  const statusColor = { engaged:'#00ff88', pending:'#ffcc00', not_started:'#4a6278', opposed:'#ff3355' }
+  const statusIcon  = { engaged:'✓', pending:'◌', not_started:'—', opposed:'✕' }
+  const tiers = [['Barangay','barangay'],['Municipality','municipality'],['Province','province'],['National','national']]
+  const readCol = sp.readiness >= 75 ? '#00ff88' : sp.readiness >= 45 ? '#ffcc00' : '#ff3355'
+  return `<div class="pt" style="color:#00ff88">🏛 SOVEREIGN PROFILE — ${p.name}</div>
+    <div class="pr"><span class="pk">Pathway Readiness</span><span class="pv" style="color:${readCol};font-family:Orbitron,monospace;font-weight:700">${sp.readiness}%</span></div>
+    <div style="height:4px;background:rgba(255,255,255,.06);border-radius:2px;margin:4px 0 8px"><div style="height:100%;width:${sp.readiness}%;background:${readCol};border-radius:2px;transition:.6s"></div></div>
+    <div style="font-family:Orbitron,monospace;font-size:7.5px;letter-spacing:.12em;color:#4a6278;margin-bottom:5px">LGU ALIGNMENT TIERS</div>
+    ${tiers.map(([label,key]) => `<div class="pr"><span class="pk">${label}</span><span class="pv" style="color:${statusColor[sp.alignment[key]]}"><span style="font-family:Orbitron,monospace">${statusIcon[sp.alignment[key]]}</span> ${sp.alignment[key].replace('_',' ').toUpperCase()}</span></div>`).join('')}
+    <div style="font-family:Orbitron,monospace;font-size:7.5px;letter-spacing:.12em;color:#4a6278;margin:8px 0 5px">NEXT ACTION</div>
+    <div style="font-size:9px;color:#ccd8e8;line-height:1.5;background:rgba(0,255,136,.05);border-left:2px solid rgba(0,255,136,.3);padding:6px 8px;border-radius:0 3px 3px 0">${sp.nextStep}</div>
+    <div style="font-size:8px;color:#4a6278;margin-top:7px">LGU: ${sp.lgu.municipality} · ${sp.lgu.province}</div>`
 }
 
 function buildScorePopup(la, lo, assetId, score, pinId) {

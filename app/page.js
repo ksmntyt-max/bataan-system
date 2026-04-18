@@ -34,6 +34,8 @@ export default function Home() {
   const [landOn,        setLandOn]        = useState(true)
   const [hazardOn,      setHazardOn]      = useState(false)
   const [clupOn,        setClupOn]        = useState(false)
+  const [sovereignOn,   setSovereignOn]   = useState(false)
+  const [omnimeshOn,    setOmnimeshOn]    = useState(false)
   const [deployedPins,  setDeployedPins]  = useState([])
   const [lastScore,     setLastScore]     = useState(null)
   const [selectedParcel,setSelectedParcel]= useState(null)
@@ -47,9 +49,9 @@ export default function Home() {
     fetch('/data/parcels.csv').then(r => r.text()).then(t => setCsvParcels(parseCSV(t))).catch(() => {})
   }, [])
 
-  // Hazard / CLUP layer pass-through
-  useEffect(() => { if (typeof window !== 'undefined') window.__blisToggleLayer?.('hazard', hazardOn) }, [hazardOn])
-  useEffect(() => { if (typeof window !== 'undefined') window.__blisToggleLayer?.('clup', clupOn)     }, [clupOn])
+  // Hazard / CLUP / Sovereign / OmniMesh layer pass-through
+  useEffect(() => { if (typeof window !== 'undefined') window.__blisToggleLayer?.('hazard',    hazardOn)    }, [hazardOn])
+  useEffect(() => { if (typeof window !== 'undefined') window.__blisToggleLayer?.('clup',      clupOn)      }, [clupOn])
 
   const handleFlyToRec = useCallback((rec) => {
     setFlyTarget({ lat: rec.lat, lng: rec.lng })
@@ -83,7 +85,8 @@ export default function Home() {
             selectedAsset={selectedAsset}
             onAssetChange={setSelectedAsset}
             heatmapOn={heatmapOn} zonesOn={zonesOn} infraOn={infraOn} recsOn={recsOn} landOn={landOn}
-            hazardOn={hazardOn}   clupOn={clupOn}
+            hazardOn={hazardOn}     clupOn={clupOn}
+            sovereignOn={sovereignOn} omnimeshOn={omnimeshOn}
             onToggleHeatmap={() => setHeatmapOn(v => !v)}
             onToggleZones={()   => setZonesOn(v => !v)}
             onToggleInfra={()   => setInfraOn(v => !v)}
@@ -91,6 +94,8 @@ export default function Home() {
             onToggleLand={()    => setLandOn(v => !v)}
             onToggleHazard={()  => setHazardOn(v => !v)}
             onToggleClup={()    => setClupOn(v => !v)}
+            onToggleSovereign={() => setSovereignOn(v => !v)}
+            onToggleOmnimesh={() => setOmnimeshOn(v => !v)}
             deployedPins={deployedPins}
             onPinDelete={id => {
               setDeployedPins(p => p.filter(pin => pin.id !== id))
@@ -104,9 +109,9 @@ export default function Home() {
             <MapWrapper
               selectedAsset={selectedAsset}
               heatmapOn={heatmapOn} zonesOn={zonesOn} infraOn={infraOn} recsOn={recsOn} landOn={landOn}
+              sovereignOn={sovereignOn} omnimeshOn={omnimeshOn}
               onParcelSelect={setSelectedParcel}
               onScoreUpdate={setLastScore}
-              onMapReady={setMapRef}
               csvParcels={csvParcels}
               flyTarget={flyTarget}
               deployedPins={deployedPins}
