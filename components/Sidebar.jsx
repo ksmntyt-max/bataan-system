@@ -14,11 +14,107 @@ const SIM_MODES = {
 }
 
 const LADDER_STEPS = [
-  { icon:'🏗', label:'Land Secured',       sub:'Identify & acquire target parcels',                status:'active'  },
-  { icon:'🤝', label:'LGU Alignment',      sub:'Engage barangay → municipality → province',         status:'next'    },
+  { icon:'🏗', label:'Land Secured',       sub:'Identify & acquire target parcels',                status:'target'  },
+  { icon:'🤝', label:'LGU Alignment',      sub:'Engage barangay → municipality → province',         status:'locked'  },
   { icon:'⛓', label:'Shard Registration', sub:'Bataan Firmamint node initialization + $CIK stake', status:'locked'  },
   { icon:'🏘', label:'Settlement T1',      sub:'First Haven settlers onboarded (Firma residency)',  status:'locked'  },
   { icon:'🏛', label:'Full Sovereignty',   sub:'Nation of Heaven EDGE node recognized',             status:'locked'  },
+]
+
+const LADDER_DETAILS = [
+  { // Step 1: Land Secured
+    summary:'Secure a physical base in Bataan — leased or owned. This is the foundation of the sovereign EDGE node. Choose between a fast temporary HQ or a permanent land acquisition.',
+    pathways:[
+      { label:'Option A — Temporary HQ', icon:'🏢', color:'#00b4ff', sub:'Lease commercial space · Deploy SeedBase container · 60–90 days',
+        steps:['Identify lease target: Mariveles CBD or Balanga City commercial district','Negotiate 1-year lease with option to renew + expansion clause','File Business Permit at LGU / Mariveles or Balanga City Hall','Deploy 1 × SeedBase HQ container on leased lot (crane-place or truck-place)','Connect to power grid + install first OmniMesh node','Fire Safety Certificate from BFP (Bureau of Fire Protection)','Covenant Chip installed and activated in HQ container','Firmamint shard dry-run attestation — prep for Step 3'] },
+      { label:'Option B — Acquire Land + Build HQ', icon:'🏛', color:'#ffcc00', sub:'Buy BLIS top-ranked parcel · Full sovereign node · 6–18 months',
+        steps:['Select parcel from BLIS LAND tab (SBFZ Block A or Mariveles RA 11453 Expansion recommended)','Engage licensed real estate broker for due diligence + title search','Obtain BIR Zonal Valuation Certificate for the parcel','DAR Conversion Order if land is agricultural (required for >5 ha)','RA 11453 endorsement letter from SBMA if in Mariveles Freeport zone','Execute Deed of Sale / SBMA Lease Agreement + SBFZ lot reservation','Register title transfer at Registry of Deeds (ROD)','Secure DPWH Building Permit + LGU Engineering Office sign-off','Deploy SeedBase HQ compound — full EDGE build-out (Hub + Forge + 2× Haven)'] },
+    ],
+    compliance:[
+      { label:'SEC / DTI Business Registration', tier:'National' },
+      { label:'BIR Tax ID + Certificate of Registration', tier:'National' },
+      { label:"Mayor's Business Permit", tier:'Municipal' },
+      { label:'SBMA / BCDA Zone Clearance (if applicable)', tier:'National' },
+      { label:'Fire Safety Certificate (BFP)', tier:'Municipal' },
+      { label:'Building Permit (DPWH / LGU Engineering)', tier:'Municipal' },
+      { label:'DENR ECC if structure >1,000 sqm or industrial', tier:'National' },
+    ],
+  },
+  { // Step 2: LGU Alignment
+    summary:'Engage all levels of local government — barangay to provincial governor — to secure formal endorsements, resolutions, and regulatory clearances for Firma\'s deployment.',
+    pathways:[
+      { label:'Option A — Community First', icon:'🤝', color:'#00ff88', sub:'Barangay → Municipality → Province · Grassroots support first',
+        steps:['Schedule barangay captain meeting — present Firma mission, job creation, FIT housing plan','Secure Barangay Resolution of Support (simple council majority vote)','Present to Sangguniang Bayan (Municipal Council) — use BLIS scoring data as proof','Secure Municipal Council Resolution + Mayor\'s Endorsement Letter','Brief Provincial Governor at Bataan Capitol (Balanga City) — NS Simulator demo','Secure Provincial Board Resolution + Governor\'s Endorsement','File all resolutions with SBMA Board if in Mariveles SBFZ zone','Submit RA 11453 Expansion Zone application to SBMA Legal Department'] },
+      { label:'Option B — Top-Down Engagement', icon:'🏛', color:'#9c44ff', sub:'Governor → Mayor → Barangay · NS Simulator as proof tool',
+        steps:['Present NS Simulator to Provincial Governor — show Bataan EDGE Zone economic potential','Secure Governor\'s Letter of Support for Firma Strategic EDGE deployment','Governor\'s office facilitates introductions to all 12 municipality mayors','Mayors of Mariveles + Balanga City briefed first (highest scoring sites)','Mayors issue Executive Orders or formal Endorsement Letters','LGU cascade to barangay captains via existing municipal network','SBMA Board presentation (SBFZ zone) — RA 11453 compliance pathway presented','Provincial Board resolution passed — Bataan officially designated Firma EDGE target'] },
+    ],
+    compliance:[
+      { label:'Barangay Resolution of Support', tier:'Barangay' },
+      { label:'Municipal Council Resolution', tier:'Municipal' },
+      { label:"Mayor's Endorsement Letter", tier:'Municipal' },
+      { label:'Provincial Board Resolution', tier:'Provincial' },
+      { label:'SBMA Board Resolution (Mariveles SBFZ)', tier:'National' },
+      { label:'DAR Conversion Order (agricultural land)', tier:'National' },
+      { label:'DENR/EMB Environmental Screening Certificate', tier:'National' },
+      { label:'RA 11453 Expansion Zone Application (if Mariveles)', tier:'National' },
+    ],
+  },
+  { // Step 3: Shard Registration
+    summary:'Register the Bataan Firmamint shard on-chain, stake $CIK, complete Proof of Sowing, and activate the economic layer of the sovereign node.',
+    pathways:[
+      { label:'Option A — Minimal Shard (Fast Start)', icon:'⚡', color:'#ffcc00', sub:'3 validators · Minimal stake · Get chain live fast',
+        steps:['Recruit 3 initial validators from Firma team / FIT members already on-site','Stake minimum $CIK requirement per validator slot (consult Firmamint protocol docs)','Deploy Covenant Chip in SeedBase HQ container — hardware attestation recorded','Run Proof of Sowing Phase 1 (attestation of physical site coordinates + conditions)','Register shard ID BATAAN-ALPHA on Firmamint mainnet','OmniMesh connectivity test — minimum 3 nodes online and attested','FIG Cash wallet instantiation + test transaction loop complete','Declare Settlemint T0 — Economic Shard Live'] },
+      { label:'Option B — Full Validator Set', icon:'⛓', color:'#9c44ff', sub:'7+ validators · Full stake · Complete Proof of Sowing before T0',
+        steps:['Recruit 7+ validators — Firma team, FIT settlers, local Bataan partners, $CIK holders','Full $CIK stake per validator (complete shard capitalization before T0)','Complete full 4-phase Proof of Sowing sequence','Deploy Covenant Chips in all HQ + Haven containers (every unit attested)','Full OmniMesh activation: Mariveles Prime Hub + SBFZ Sentinel + ≥2 relay nodes','BSP VASP registration pre-cleared before T0 declaration','FIG Cash + $CIK → local exchange pair tested and active','Declare T0 with Firma Alliance announcement + press release'] },
+    ],
+    compliance:[
+      { label:'BSP VASP Registration (Virtual Asset Service Provider)', tier:'National' },
+      { label:'RA 8799 Securities Regulation Code compliance check', tier:'National' },
+      { label:'Proof of Sowing — all phases completed', tier:'Protocol' },
+      { label:'Covenant Chip hardware attestation (all deployed units)', tier:'Protocol' },
+      { label:'OmniMesh ≥3 nodes live + peer-connected', tier:'Protocol' },
+      { label:'FIG Cash wallet activation + KYC flow live', tier:'Protocol' },
+      { label:'Firmamint on-chain shard ID registration', tier:'Protocol' },
+    ],
+  },
+  { // Step 4: Settlement T1
+    summary:'Onboard first Haven settlers to the Bataan node, activating Settlemint T0→T1 governance and proving the sovereign community model with living residents.',
+    pathways:[
+      { label:'Option A — FIT Team Soft Launch', icon:'🏘', color:'#00ff88', sub:'Firma Impact Team settlers only · Controlled T1 · 3–6 months',
+        steps:['Dedicate 3–5 Haven pods to FIT (Firma Impact Team) members + families','FIT members sign Settlemint Covenant — T0→T1 governance obligations accepted','Deploy Edge Forge (Steel Forge container) — BTC mining revenue from day one','Solar + Ion+ battery bank live — full energy independence established','OmniMesh network operational — all FIT devices connected and attested','FIG Cash flows: Forge BTC → FIG → local purchasing power for settlers','Covenant Chips issued to all residents — sovereign on-chain identity active','Weekly team council meetings — pre-Governmint governance training begins'] },
+      { label:'Option B — Open Settlement Recruitment', icon:'🌍', color:'#9c44ff', sub:'Public Haven applications · Full T1 community · 6–12 months',
+        steps:['Launch Haven Bataan public application portal — open to global applicants','Applicant screening through Firma Covenant alignment process','Site tours + NS Simulator access for accepted applicants','Commission first 10–20 Haven units — fully furnished and attested','Community Charter drafted and ratified by founding settlers together','Governmint council elected — rotating 5-seat settler council','Local council formally interfaces with SBMA/LGU as community representative','FIG Cash + $CIK economy live — full economic integration','Media event: "Bataan Sovereign Node Goes Live" — Firma Alliance coverage'] },
+    ],
+    compliance:[
+      { label:'DHSUD (HLURB) Subdivision Plan Approval', tier:'National' },
+      { label:'Occupancy Certificate (LGU Engineering Office)', tier:'Municipal' },
+      { label:'Fire Safety Certificate — residential (BFP)', tier:'Municipal' },
+      { label:'Water / Sanitation Permit (LWUA or LGU)', tier:'Municipal' },
+      { label:'DOLE Employer Registration (if employing settlers)', tier:'National' },
+      { label:'PhilHealth / SSS / Pag-IBIG employer registration', tier:'National' },
+      { label:'Community Charter filed with LGU + Firmamint', tier:'Protocol' },
+      { label:'Governmint council formation + charter ratified on-chain', tier:'Protocol' },
+    ],
+  },
+  { // Step 5: Full Sovereignty
+    summary:'Bataan EDGE node achieves full Nation of Heaven recognition — active Firmamint shard, inter-node trade, full $CIK + FIG economy, PEZA recognition, and Firma Alliance membership.',
+    pathways:[
+      { label:'Option A — Firma Alliance Declaration', icon:'🏛', color:'#ffcc00', sub:'Network State declaration · $CIK + FIG live · Freedom of movement',
+        steps:['Submit Bataan node proof stack to Firma Alliance Council (land docs, LGU resolutions, settler count, shard metrics)','Firma Alliance Council review and ratification vote','Atonemint + Figmint protocols activated for cross-node trade','$CIK circulating supply enters Bataan shard reserve (T2 threshold crossed)','Freedom of movement between Firma EDGE nodes activated for all settlers','Nation of Heaven sovereign ID issued to every Bataan settler','Bataan node listed on global Firma Alliance EDGE map','Bataan achieves Settlemint T3 — sovereign currency milestone'] },
+      { label:'Option B — Philippines EDGE SEZ', icon:'🇵🇭', color:'#00b4ff', sub:'PEZA / BOI EDGE Zone · RA 7916 SEZ Act · Formal PH sovereign status',
+        steps:['Prepare PEZA Zone Proclamation application (LGU endorsement + feasibility study required)','Submit to BOI for Pioneer Status — first sovereign containerized modular EDGE zone in PH','Engage SBMA for Bataan Technology Park expansion designation under RA 11453','RA 7042 Foreign Investment Act clearance for foreign equity in Forge + Solar ops','BSP full VASP License upgrade (from provisional to full license)','PEZA proclamation endorsed by President of the Philippines (long-term milestone)','$CIK recognized as BSP-regulated digital asset within Bataan SEZ perimeter','Bataan declared Firma APAC Sovereign EDGE Zone flagship — global announcement'] },
+    ],
+    compliance:[
+      { label:'PEZA Registration / BOI Pioneer Status application', tier:'National' },
+      { label:'RA 7042 Foreign Investment Act clearance', tier:'National' },
+      { label:'BSP Full VASP License (upgrade from provisional)', tier:'National' },
+      { label:'SEC crypto asset classification clearance', tier:'National' },
+      { label:'Firma Alliance Charter ratification', tier:'Protocol' },
+      { label:'Atonemint + Figmint protocol activation', tier:'Protocol' },
+      { label:'Settlemint T3 metrics met and verified on-chain', tier:'Protocol' },
+      { label:'Inter-node trade + freedom of movement agreement', tier:'Protocol' },
+    ],
+  },
 ]
 
 const FIRMA_PRODUCTS = [
@@ -41,9 +137,11 @@ export default function Sidebar({
   deployedPins, onPinDelete, onFlyToRec,
   onOpenCalc,
 }) {
-  const [tab, setTab]           = useState(0)
-  const [recAsset, setRecAsset] = useState('hq')
-  const [simMode, setSimMode]   = useState('sandbox')
+  const [tab, setTab]               = useState(0)
+  const [recAsset, setRecAsset]     = useState('hq')
+  const [simMode, setSimMode]       = useState('sandbox')
+  const [activeLadderStep, setActiveLadderStep] = useState(null)
+  const [activeLadderPath, setActiveLadderPath] = useState(0)
   const [landFilter, setLandFilter] = useState({ asset: 'all', budget: 'all', sort: 'compat' })
   const [scanning, setScanning] = useState(false)
   const [scanMsg, setScanMsg]   = useState('Select an asset type first to enable asset-specific scan')
@@ -342,19 +440,68 @@ export default function Sidebar({
           </div>
 
           {/* Sovereignty Ladder */}
-          <div className="shd" style={{marginTop:8}}>SOVEREIGNTY LADDER <span style={{color:'var(--gold)',fontSize:8,marginLeft:4}}>BATAAN — STEP 1</span></div>
+          <div className="shd" style={{marginTop:8}}>SOVEREIGNTY LADDER <span style={{color:'var(--accent)',fontSize:8,marginLeft:4}}>BATAAN — TARGETING STEP 1</span></div>
+          <div className="ladder-hint">Click any step to view pathway options + compliance checklist</div>
           <div className="ladder-wrap">
-            {LADDER_STEPS.map((step, i) => (
-              <div key={i} className={`ladder-step ${step.status}`}>
-                <div className="ladder-num">{i + 1}</div>
-                <div className="ladder-icon">{step.icon}</div>
-                <div className="ladder-info">
-                  <div className="ladder-label">{step.label}</div>
-                  <div className="ladder-sub">{step.sub}</div>
+            {LADDER_STEPS.map((step, i) => {
+              const isOpen = activeLadderStep === i
+              const det = LADDER_DETAILS[i]
+              return (
+                <div key={i}>
+                  <div className={`ladder-step ${step.status}${isOpen ? ' expanded' : ''}`}
+                    onClick={() => { setActiveLadderStep(isOpen ? null : i); setActiveLadderPath(0) }}>
+                    <div className="ladder-num">{i + 1}</div>
+                    <div className="ladder-icon">{step.icon}</div>
+                    <div className="ladder-info">
+                      <div className="ladder-label">{step.label}
+                        {step.status === 'target' && <span className="ladder-target-badge">TARGETING</span>}
+                      </div>
+                      <div className="ladder-sub">{step.sub}</div>
+                    </div>
+                    {step.status === 'target' && <div className="ladder-target-dot" />}
+                    <div className="ladder-chevron">{isOpen ? '▾' : '▸'}</div>
+                  </div>
+                  {isOpen && det && (
+                    <div className="ladder-detail">
+                      <div className="ld-summary">{det.summary}</div>
+                      <div className="ld-path-tabs">
+                        {det.pathways.map((p, pi) => (
+                          <button key={pi}
+                            className={`ld-path-tab${activeLadderPath === pi ? ' on' : ''}`}
+                            style={{'--ptc': p.color}}
+                            onClick={e => { e.stopPropagation(); setActiveLadderPath(pi) }}>
+                            <span>{p.icon}</span> {p.label}
+                          </button>
+                        ))}
+                      </div>
+                      {det.pathways[activeLadderPath] && (
+                        <div className="ld-path-content">
+                          <div className="ld-path-sub">{det.pathways[activeLadderPath].sub}</div>
+                          <div className="ld-steps">
+                            {det.pathways[activeLadderPath].steps.map((s, si) => (
+                              <div key={si} className="ld-step-item">
+                                <span className="ld-step-num">{si + 1}</span>
+                                <span className="ld-step-text">{s}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      <div className="ld-compliance-title">COMPLIANCE REQUIREMENTS</div>
+                      <div className="ld-compliance-list">
+                        {det.compliance.map((c, ci) => (
+                          <div key={ci} className="ld-compliance-item">
+                            <span className="ld-check">☐</span>
+                            <span className="ld-clabel">{c.label}</span>
+                            <span className={`ld-tier ld-tier-${c.tier.toLowerCase().replace(' ','')}`}>{c.tier}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
-                {step.status === 'active' && <div className="ladder-pulse" />}
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           {/* Firma Product Grid */}
