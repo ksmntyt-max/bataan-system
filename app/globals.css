@@ -1,4 +1,4 @@
-@import 'leaflet/dist/leaflet.css';
+/* MapLibre GL JS — loaded via component import */
 
 :root {
   --bg:      #040810;
@@ -303,11 +303,22 @@ html,body { width:100vw; height:100vh; overflow:hidden; background:var(--bg); co
 .score-big { font-family:var(--font-orbitron); font-size:9px; letter-spacing:.1em; color:var(--dim) }
 .score-num { font-family:var(--font-orbitron); font-size:26px; font-weight:900 }
 
-/* MAP POPUPS */
-.leaflet-container { background:#040810 !important }
-.mpop .leaflet-popup-content-wrapper { background:rgba(8,18,38,.96); border:1px solid var(--border); border-radius:6px; color:var(--text); backdrop-filter:blur(12px) }
-.mpop .leaflet-popup-tip { background:rgba(8,18,38,.96) }
-.mpop .leaflet-popup-content { margin:13px 16px; font-family:var(--font-space) }
+/* MAP POPUPS — MapLibre GL */
+.maplibregl-map { background:#040810 }
+.mpop .maplibregl-popup-content { background:rgba(8,18,38,.96); border:1px solid var(--border); border-radius:6px; color:var(--text); backdrop-filter:blur(12px); padding:13px 16px; font-family:var(--font-space); box-shadow:0 8px 32px rgba(0,0,0,.7) }
+.mpop.maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color:rgba(8,18,38,.96) }
+.mpop.maplibregl-popup-anchor-top    .maplibregl-popup-tip { border-bottom-color:rgba(8,18,38,.96) }
+.mpop.maplibregl-popup-anchor-left   .maplibregl-popup-tip { border-right-color:rgba(8,18,38,.96) }
+.mpop.maplibregl-popup-anchor-right  .maplibregl-popup-tip { border-left-color:rgba(8,18,38,.96) }
+.mpop .maplibregl-popup-close-button { color:var(--dim); font-size:16px; padding:4px 8px }
+.mpop .maplibregl-popup-close-button:hover { color:var(--danger) }
+/* MapLibre zoom controls */
+.maplibregl-ctrl-group { background:rgba(8,18,38,.9) !important; border:1px solid var(--border) !important; border-radius:4px !important }
+.maplibregl-ctrl-group button { background:transparent !important; color:var(--text) !important }
+.maplibregl-ctrl-group button:hover { background:rgba(0,180,255,.14) !important }
+.maplibregl-ctrl-group button + button { border-top-color:var(--border) !important }
+.maplibregl-ctrl-attrib { background:rgba(4,8,16,.7) !important; color:var(--dim) !important; font-size:9px !important }
+.maplibregl-ctrl-attrib a { color:var(--dim) !important }
 .pt { font-family:var(--font-orbitron); font-size:12px; font-weight:700; color:var(--accent); margin-bottom:9px }
 .pr { display:flex; justify-content:space-between; font-size:10px; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.05); gap:18px }
 .pk{color:var(--dim)}.pv{color:var(--text);font-weight:500}
@@ -322,8 +333,6 @@ html,body { width:100vw; height:100vh; overflow:hidden; background:var(--bg); co
 .land-mk-icon { transform:rotate(-45deg); font-size:12px; display:block; line-height:1 }
 .land-mk-score { position:absolute; top:-12px; left:50%; transform:translateX(-50%); font-family:var(--font-orbitron); font-size:8px; font-weight:700; background:rgba(0,0,0,.9); border:1px solid rgba(255,204,0,.5); border-radius:2px; padding:1px 4px; color:var(--gold); white-space:nowrap }
 .land-mk-urg { position:absolute; bottom:-12px; left:50%; transform:translateX(-50%); font-family:var(--font-orbitron); font-size:6.5px; letter-spacing:.06em; padding:1px 4px; border-radius:2px; white-space:nowrap }
-.leaflet-bar a { background:rgba(8,18,38,.9) !important; color:var(--text) !important; border-color:var(--border) !important }
-.leaflet-bar a:hover { background:rgba(0,180,255,.14) !important }
 
 /* ═══ PARCEL PANEL ═══ */
 .parcel-overlay { position:fixed; inset:0; z-index:800; background:rgba(0,0,0,.6); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center }

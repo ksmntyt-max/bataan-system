@@ -1,51 +1,53 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
+import maplibregl from 'maplibre-gl'
+import 'maplibre-gl/dist/maplibre-gl.css'
 import { MUNICIPALITIES, INFRA, ASSETS, RECS, LAND_OPPS, BATAAN_OUTLINE, CORREGIDOR, SOVEREIGN_PROFILES, OMNIMESH_NODES } from '@/lib/data'
-import { calcScore, landCompatScore, scoreColor, zonalColor, formatPHP } from '@/lib/scoring'
+import { calcScore, landCompatScore, scoreColor, zonalColor } from '@/lib/scoring'
 
-const HAZARD_COLORS = {
-  flood:       { low: 'rgba(0,120,255,.35)',    mid: 'rgba(0,60,200,.5)',    high: 'rgba(0,0,200,.65)'   },
-  liquefaction:{ low: 'rgba(255,150,0,.30)',    mid: 'rgba(255,100,0,.45)',  high: 'rgba(255,50,0,.62)'  },
-  storm_surge: { low: 'rgba(180,0,255,.28)',    mid: 'rgba(140,0,220,.44)',  high: 'rgba(100,0,200,.60)' },
-}
-const ZONE_COLORS = {
-  Industrial:  'rgba(255,107,53,.45)',
-  Commercial:  'rgba(0,180,255,.40)',
-  Agricultural:'rgba(0,255,136,.35)',
-  Protected:   'rgba(255,51,85,.42)',
-}
-
+// ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const OMNIMESH_COLORS = { Node:'#00b4ff', Sentinel:'#00ff88', Pulse:'#ff6b35', Whisper:'#9c44ff' }
 
-// ── STRATEGIC CONTEXT LAYER DATA ────────────────────────────────────────────
-const SBFZ_POLY = [
-  [14.830,120.252],[14.857,120.258],[14.878,120.278],[14.882,120.303],
-  [14.862,120.326],[14.838,120.322],[14.812,120.312],[14.798,120.290],
-  [14.803,120.265],[14.820,120.252],
-]
-const FAB_POLY = [ // Freeport Area of Bataan — Mariveles
-  [14.438,120.456],[14.453,120.460],[14.462,120.474],
-  [14.456,120.486],[14.441,120.483],[14.434,120.469],
-]
-const HERMOSA_POLY = [ // Hermosa Ecozone / HEIP
-  [14.826,120.500],[14.840,120.504],[14.845,120.518],
-  [14.836,120.527],[14.823,120.522],[14.818,120.508],
-]
-const CLARK_POLY = [ // Clark Freeport Zone — Pampanga (strategic context)
-  [15.155,120.490],[15.165,120.520],[15.190,120.575],[15.210,120.578],
-  [15.215,120.555],[15.215,120.530],[15.200,120.510],[15.178,120.490],
-]
-// BCIB — Bataan-Cavite Interlink Bridge, Manila Bay crossing (planned 2029)
-const BCIB_LINE = [
-  [14.425,120.488], // Mariveles port (Manila Bay side)
-  [14.392,120.572], // Corregidor Island vicinity
-  [14.355,120.650], // mid-Manila Bay
-  [14.325,120.756], // Naic, Cavite landing
-]
+const SBFZ_POLY    = [[14.830,120.252],[14.857,120.258],[14.878,120.278],[14.882,120.303],[14.862,120.326],[14.838,120.322],[14.812,120.312],[14.798,120.290],[14.803,120.265],[14.820,120.252]]
+const FAB_POLY     = [[14.438,120.456],[14.453,120.460],[14.462,120.474],[14.456,120.486],[14.441,120.483],[14.434,120.469]]
+const HERMOSA_POLY = [[14.826,120.500],[14.840,120.504],[14.845,120.518],[14.836,120.527],[14.823,120.522],[14.818,120.508]]
+const CLARK_POLY   = [[15.155,120.490],[15.165,120.520],[15.190,120.575],[15.210,120.578],[15.215,120.555],[15.215,120.530],[15.200,120.510],[15.178,120.490]]
+const BCIB_LINE    = [[14.425,120.488],[14.392,120.572],[14.355,120.650],[14.325,120.756]]
 
+// GeoJSON layer IDs per toggle group
+const GEO_IDS = {
+  zones:     ['zones-outer-fill','zones-inner-fill','zones-line'],
+  heatmap:   ['heatmap-layer'],
+  strategic: ['strat-fills','strat-lines','strat-bcib'],
+  sovereign: ['sov-fill','sov-line'],
+  omnimesh:  ['omni-lines'],
+  hazard:    ['hazard-layer'],
+  clup:      ['clup-layer'],
+}
+
+// ── HELPERS ───────────────────────────────────────────────────────────────────
+const xy  = ([lat, lng]) => [lng, lat]
+const xys = arr => arr.map(xy)
+
+function circleRing(lat, lng, radiusM, steps = 48) {
+  const R = 6371000, pts = []
+  for (let i = 0; i <= steps; i++) {
+    const a = (i / steps) * 2 * Math.PI
+    const dLat = (radiusM * Math.cos(a)) / R * (180 / Math.PI)
+    const dLng = (radiusM * Math.sin(a)) / (R * Math.cos(lat * Math.PI / 180)) * (180 / Math.PI)
+    pts.push([lng + dLng, lat + dLat])
+  }
+  return pts
+}
+
+function mkEl(html) {
+  const d = document.createElement('div')
+  d.innerHTML = html
+  return d.firstChild
+}
+
+// ── COMPONENT ─────────────────────────────────────────────────────────────────
 export default function MapInner({
   selectedAsset,
   heatmapOn, zonesOn, infraOn, recsOn, landOn,
@@ -54,375 +56,463 @@ export default function MapInner({
   csvParcels, deployedPins, onPinDeploy, onPinRemove,
   flyTarget,
 }) {
-  const mapRef          = useRef(null)
-  const mapInstance     = useRef(null)
-  const layers          = useRef({})
-  const placing         = useRef(false)
-  const pinMarkers      = useRef(new Map()) // id -> L.Marker
-  const [coords, setCoords] = useState({ lat: '14.6560', lng: '120.4900' })
+  const divRef   = useRef(null)
+  const map$     = useRef(null)
+  const loaded   = useRef(false)
+  const mkGroups = useRef({})          // name -> Marker[]
+  const placing  = useRef({ active: false, assetId: null })
+  const pinMks   = useRef(new Map())   // pinId -> Marker
+  const cb       = useRef({ onParcelSelect, onPinDeploy, onPinRemove, onScoreUpdate })
+  const [coords, setCoords] = useState({ lat:'14.6560', lng:'120.4900' })
   const [legendOpen, setLegendOpen] = useState(false)
 
+  useEffect(() => { cb.current = { onParcelSelect, onPinDeploy, onPinRemove, onScoreUpdate } },
+    [onParcelSelect, onPinDeploy, onPinRemove, onScoreUpdate])
+
+  // ── TOGGLE ────────────────────────────────────────────────────────────────
+  function toggle(name, on) {
+    const map = map$.current
+    if (!map) return
+    for (const id of (GEO_IDS[name] || [])) {
+      if (loaded.current && map.getLayer(id))
+        map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')
+    }
+    for (const mk of (mkGroups.current[name] || [])) {
+      mk.getElement().style.display = on ? '' : 'none'
+    }
+  }
+
+  // ── INIT MAP ──────────────────────────────────────────────────────────────
   useEffect(() => {
-    if (mapInstance.current) return
-    try { require('leaflet.heat') } catch (_) {}
+    if (map$.current) return
 
-    const map = L.map(mapRef.current, {
-      center: [14.65, 120.47], zoom: 11, minZoom: 8, zoomControl: true, attributionControl: false,
-      maxBounds: [[13.2, 118.8], [16.5, 122.2]], maxBoundsViscosity: 0.85,
-    })
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', { maxZoom: 19, subdomains: 'abcd' }).addTo(map)
-    L.control.attribution({ prefix: '<span style="color:#3a5268;font-size:9px">© CartoDB · BIR SMV · PSA · SBMA · BLIS v1.2</span>' }).addTo(map)
-    mapInstance.current = map
-
-    // Province outline
-    L.polygon(BATAAN_OUTLINE, { color: 'rgba(0,180,255,.55)', weight: 1.8, fillColor: 'rgba(0,100,255,.04)', fillOpacity: 1, dashArray: '6,4' }).addTo(map)
-      .bindTooltip('<span style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:.1em">PROVINCE OF BATAAN</span>', { className: 'mpop' })
-
-    // Corregidor Island — circle outline (avoids coastline-tracing errors)
-    L.circle([CORREGIDOR.lat, CORREGIDOR.lng], {
-      radius: CORREGIDOR.radius, color: 'rgba(0,180,255,.40)', weight: 1.2,
-      fill: false, dashArray: '5,4',
-    }).addTo(map)
-      .bindTooltip('<span style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:.1em">CORREGIDOR ISLAND</span>', { className: 'mpop' })
-    L.marker([CORREGIDOR.lat, CORREGIDOR.lng], {
-      icon: L.divIcon({ html:`<div style="font-family:Orbitron,monospace;font-size:7.5px;color:rgba(0,180,255,.7);text-shadow:0 0 6px rgba(0,180,255,.5),0 1px 3px #000;white-space:nowrap;letter-spacing:.07em;text-align:center">CORREGIDOR<br>ISLAND</div>`, className:'', iconSize:[90,22], iconAnchor:[45,11] }),
-      zIndexOffset: 50,
-    }).addTo(map)
-
-    // Strategic context layer — SBFZ, FAB, Hermosa, Clark, airports, BCIB
-    const strategicLayer = L.layerGroup()
-
-    // SBFZ — Subic Bay Freeport Zone
-    L.polygon(SBFZ_POLY, { color:'rgba(255,204,0,.65)', weight:1.5, fillColor:'rgba(255,204,0,.06)', fillOpacity:1, dashArray:'8,5' })
-      .bindTooltip('<span style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:.1em;color:#ffcc00">SUBIC BAY FREEPORT ZONE</span>', { className:'mpop' })
-      .addTo(strategicLayer)
-    L.marker([14.840, 120.290], { icon: L.divIcon({ html:`<div style="font-family:Orbitron,monospace;font-size:8px;color:#ffcc00;text-shadow:0 0 8px #ffcc00,0 1px 3px #000;white-space:nowrap;letter-spacing:.07em">⬡ SBFZ</div>`, className:'', iconSize:[60,14], iconAnchor:[30,7] }), zIndexOffset:400 }).addTo(strategicLayer)
-
-    // Subic Bay International Airport (SFS)
-    L.marker([14.796, 120.270], { icon: L.divIcon({ html:`<div class="strat-airport" style="border-color:#ffcc00;color:#ffcc00">✈ SFS</div>`, className:'', iconSize:[1,1] }), zIndexOffset:410 })
-      .bindPopup(`<div class="pt" style="color:#ffcc00">✈ Subic Bay International Airport (SFS)</div><div style="font-size:10px;color:#ccd8e8;line-height:1.55">Within SBFZ — handles cargo + charter flights. Key logistics node for container equipment imports into the Subic-Clark-Bataan triangle.</div>`, { className:'mpop', maxWidth:260 })
-      .addTo(strategicLayer)
-
-    // FAB — Freeport Area of Bataan
-    L.polygon(FAB_POLY, { color:'rgba(0,180,255,.65)', weight:1.5, fillColor:'rgba(0,180,255,.07)', fillOpacity:1, dashArray:'6,4' })
-      .bindTooltip('<span style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:.1em;color:#00b4ff">FREEPORT AREA OF BATAAN</span>', { className:'mpop' })
-      .addTo(strategicLayer)
-    L.marker([14.449, 120.470], { icon: L.divIcon({ html:`<div style="font-family:Orbitron,monospace;font-size:8px;color:#00b4ff;text-shadow:0 0 8px #00b4ff,0 1px 3px #000;white-space:nowrap;letter-spacing:.07em">⬡ FAB</div>`, className:'', iconSize:[50,14], iconAnchor:[25,7] }), zIndexOffset:400 }).addTo(strategicLayer)
-
-    // Hermosa Ecozone (HEIP)
-    L.polygon(HERMOSA_POLY, { color:'rgba(0,255,136,.60)', weight:1.5, fillColor:'rgba(0,255,136,.06)', fillOpacity:1, dashArray:'6,4' })
-      .bindTooltip('<span style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:.1em;color:#00ff88">HERMOSA ECOZONE</span>', { className:'mpop' })
-      .addTo(strategicLayer)
-    L.marker([14.833, 120.513], { icon: L.divIcon({ html:`<div style="font-family:Orbitron,monospace;font-size:8px;color:#00ff88;text-shadow:0 0 8px #00ff88,0 1px 3px #000;white-space:nowrap;letter-spacing:.07em">⬡ HEIP</div>`, className:'', iconSize:[52,14], iconAnchor:[26,7] }), zIndexOffset:400 }).addTo(strategicLayer)
-
-    // Clark Freeport Zone (Pampanga — strategic triangle context)
-    L.polygon(CLARK_POLY, { color:'rgba(156,68,255,.60)', weight:1.5, fillColor:'rgba(156,68,255,.06)', fillOpacity:1, dashArray:'8,5' })
-      .bindTooltip('<span style="font-family:Orbitron,monospace;font-size:9px;letter-spacing:.1em;color:#9c44ff">CLARK FREEPORT ZONE</span>', { className:'mpop' })
-      .addTo(strategicLayer)
-    L.marker([15.183, 120.533], { icon: L.divIcon({ html:`<div style="font-family:Orbitron,monospace;font-size:8px;color:#9c44ff;text-shadow:0 0 8px #9c44ff,0 1px 3px #000;white-space:nowrap;letter-spacing:.07em">⬡ CLARK FZ</div>`, className:'', iconSize:[68,14], iconAnchor:[34,7] }), zIndexOffset:400 }).addTo(strategicLayer)
-
-    // Clark International Airport (CRK)
-    L.marker([15.187, 120.560], { icon: L.divIcon({ html:`<div class="strat-airport" style="border-color:#9c44ff;color:#9c44ff">✈ CRK</div>`, className:'', iconSize:[1,1] }), zIndexOffset:410 })
-      .bindPopup(`<div class="pt" style="color:#9c44ff">✈ Clark International Airport (CRK)</div><div style="font-size:10px;color:#ccd8e8;line-height:1.55">Clark Freeport Zone, Pampanga. Second international gateway of Metro Manila area. Key node in the Subic-Clark-Bataan economic triangle. ~45 km from Bataan's northern border.</div>`, { className:'mpop', maxWidth:260 })
-      .addTo(strategicLayer)
-
-    // BCIB — Bataan-Cavite Interlink Bridge (planned, Dec 2029)
-    L.polyline(BCIB_LINE, { color:'#ffcc00', weight:3, dashArray:'12,7', opacity:0.80 })
-      .bindPopup(`<div class="pt" style="color:#ffcc00">🌉 Bataan-Cavite Interlink Bridge (BCIB)</div>
-        <div class="pr"><span class="pk">Route</span><span class="pv">Mariveles → Naic, Cavite</span></div>
-        <div class="pr"><span class="pk">Length</span><span class="pv">32.15 km (sea crossing)</span></div>
-        <div class="pr"><span class="pk">Target Completion</span><span class="pv" style="color:#ffcc00">December 2029</span></div>
-        <div style="font-size:9px;color:#ccd8e8;line-height:1.55;margin-top:6px">Connects Mariveles to CALAX/CAVITEX expressway network, reducing Manila-Bataan travel time by 3–4 hours. Critical infrastructure trigger for Bataan land value appreciation along the Manila Bay corridor.</div>`,
-        { className:'mpop', maxWidth:300 })
-      .addTo(strategicLayer)
-    // BCIB label at midpoint
-    L.marker([14.376, 120.618], { icon: L.divIcon({ html:`<div style="font-family:Orbitron,monospace;font-size:8px;color:#ffcc00;text-shadow:0 0 10px #ffcc00,0 1px 3px #000;white-space:nowrap;letter-spacing:.07em;background:rgba(0,0,0,.55);padding:2px 5px;border-radius:3px;border:1px solid rgba(255,204,0,.3)">⊶ BCIB 2029</div>`, className:'', iconSize:[80,18], iconAnchor:[40,9] }), zIndexOffset:420 }).addTo(strategicLayer)
-
-    layers.current.strategic = strategicLayer
-
-    // Zones layer
-    const zonesLayer = L.layerGroup()
-    MUNICIPALITIES.forEach(m => {
-      const avg = (m.zonalMin + m.zonalMax) / 2
-      const col = zonalColor(avg)
-      const popup = buildMuniPopup(m)
-      L.circle([m.lat, m.lng], { radius: m.r * 1000, color: col, weight: 1, fillColor: col, fillOpacity: .10 }).bindPopup(popup, { className: 'mpop', maxWidth: 290 }).addTo(zonesLayer)
-      L.circle([m.lat, m.lng], { radius: m.r * 350,  color: col, weight: 1, fillColor: col, fillOpacity: .20 }).bindPopup(popup, { className: 'mpop', maxWidth: 290 }).addTo(zonesLayer)
-      const lbl = L.divIcon({ html: `<div style="font-family:'Orbitron',monospace;font-size:8.5px;letter-spacing:.07em;color:${col};text-shadow:0 0 8px ${col},0 1px 3px #000;text-align:center;white-space:nowrap">${m.name.toUpperCase()}</div>`, className: '', iconSize: [120, 18], iconAnchor: [60, 9] })
-      L.marker([m.lat, m.lng], { icon: lbl, zIndexOffset: 100 }).addTo(zonesLayer)
-    })
-    layers.current.zones = zonesLayer
-    zonesLayer.addTo(map)
-
-    // Infrastructure layer
-    const infraLayer = L.layerGroup()
-    const infCols = { port: '#00b4ff', freeport: '#ffcc00', power: '#ff6b35', road: 'rgba(255,255,255,.5)', fiber: '#9c44ff' }
-    Object.values(INFRA).forEach(inf => {
-      const col = infCols[inf.type] || '#fff'
-      const ic = L.divIcon({ html: `<div class="infra-ic" style="border-color:${col}45;color:${col}"><span>${inf.icon}</span><span class="infra-lb">${inf.label}</span></div>`, className: '', iconSize: [1, 1], iconAnchor: [0, 0] })
-      L.marker([inf.lat, inf.lng], { icon: ic, zIndexOffset: 200 }).addTo(infraLayer)
-    })
-    layers.current.infra = infraLayer
-    infraLayer.addTo(map)
-
-    // Recommendation markers
-    const recsLayer = L.layerGroup()
-    Object.entries(RECS).forEach(([assetId, recs]) => {
-      const cfg = ASSETS[assetId]
-      recs.forEach((rec, i) => {
-        const sc = scoreColor(rec.score)
-        const icon = L.divIcon({
-          html: `<div class="amark rec-marker" style="color:${cfg.color};background:rgba(0,0,0,.78);border-color:${cfg.color}">
-            <div class="rec-badge">#${i + 1}</div>${cfg.icon}
-            <div class="score-badge" style="color:${sc}">${rec.score}</div>
-          </div>`,
-          className: '', iconSize: [38, 38], iconAnchor: [19, 19],
-        })
-        L.marker([rec.lat, rec.lng], { icon, zIndexOffset: 300 })
-          .bindPopup(buildRecPopup(rec, cfg), { className: 'mpop', maxWidth: 300 })
-          .addTo(recsLayer)
-      })
-    })
-    layers.current.recs = recsLayer
-    recsLayer.addTo(map)
-
-    // Land opportunity markers
-    const landLayer = L.layerGroup()
-    LAND_OPPS.forEach(p => {
-      const urgColor = p.urgency === 'HIGH' ? '#ff3355' : p.urgency === 'MEDIUM' ? '#ff6b35' : '#4a6278'
-      const icon = L.divIcon({
-        html: `<div class="land-mk">
-          <div class="land-mk-score">${landCompatScore(p, null)}</div>
-          <div class="land-mk-inner" style="border-color:${urgColor}"><span class="land-mk-icon">🏗</span></div>
-          <div class="land-mk-urg" style="background:${urgColor}20;border:1px solid ${urgColor}50;color:${urgColor}">${p.urgency}</div>
-        </div>`,
-        className: '', iconSize: [28, 28], iconAnchor: [14, 14],
-      })
-      L.marker([p.lat, p.lng], { icon, zIndexOffset: 250 })
-        .on('click', () => onParcelSelect?.(p))
-        .bindPopup(buildLandPopup(p), { className: 'mpop', maxWidth: 300 })
-        .addTo(landLayer)
-    })
-    layers.current.land = landLayer
-    landLayer.addTo(map)
-
-    // CSV parcel pins (color by asset_class)
-    if (csvParcels?.length) {
-      const csvLayer = L.layerGroup()
-      const csvColors = { forge: '#ff6b35', hq: '#00b4ff', haven: '#00ff88', solar: '#ffcc00', default: '#9c44ff' }
-      csvParcels.forEach(p => {
-        const col = csvColors[p.asset_class] || csvColors.default
-        const icon = L.divIcon({
-          html: `<div style="width:12px;height:12px;border-radius:50%;background:${col};border:2px solid ${col};box-shadow:0 0 8px ${col};"></div>`,
-          className: '', iconSize: [12, 12], iconAnchor: [6, 6],
-        })
-        L.marker([parseFloat(p.lat), parseFloat(p.lng)], { icon, zIndexOffset: 150 })
-          .bindPopup(`<div class="pt">${p.parcel_id} — ${p.municipality}</div>
-            <div class="pr"><span class="pk">Asset Class</span><span class="pv">${p.asset_class}</span></div>
-            <div class="pr"><span class="pk">BIR Value</span><span class="pv">₱${Number(p.bir_value_sqm).toLocaleString()}/sqm</span></div>
-            <div class="pr"><span class="pk">Zoning</span><span class="pv">${p.zoning}</span></div>
-            <div class="pr"><span class="pk">Status</span><span class="pv">${p.status}</span></div>
-            <div class="pr"><span class="pk">Notes</span><span class="pv" style="font-size:9px">${p.notes}</span></div>
-            <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${p.lat},${p.lng}" target="_blank" style="display:block;margin-top:8px;padding:6px 10px;background:rgba(0,200,100,.15);border:1px solid rgba(0,200,100,.4);border-radius:4px;color:#00ff88;text-decoration:none;font-size:10px;text-align:center">📍 Open Street View</a>`,
-          { className: 'mpop', maxWidth: 280 })
-          .addTo(csvLayer)
-      })
-      layers.current.csvParcels = csvLayer
-      csvLayer.addTo(map)
-    }
-
-    // Heatmap
-    const heatPoints = []
-    for (let i = 0; i < 26; i++) {
-      for (let j = 0; j < 26; j++) {
-        const la = 14.43 + i * (14.90 - 14.43) / 25
-        const lo = 120.25 + j * (120.73 - 120.25) / 25
-        const nearMuni = MUNICIPALITIES.reduce((b, m) => { const d = Math.hypot(la - m.lat, lo - m.lng); return d < b.d ? { m, d } : b }, { d: Infinity }).m
-        if (!nearMuni) continue
-        const sc = calcScore(la, lo, 'forge').total
-        heatPoints.push([la, lo, sc / 100])
-      }
-    }
-    if (L.heatLayer) {
-      layers.current.heatmap = L.heatLayer(heatPoints, { radius: 35, blur: 22, maxZoom: 13, gradient: { 0: '#00ff88', .4: '#ffcc00', .7: '#ff6b35', 1: '#ff3355' } })
-    }
-
-    // Sovereign Engagement layer
-    const sovereignLayer = L.layerGroup()
-    LAND_OPPS.forEach(p => {
-      const sp = SOVEREIGN_PROFILES[p.id]
-      if (!sp) return
-      const col = sp.readiness >= 75 ? '#00ff88' : sp.readiness >= 45 ? '#ffcc00' : '#ff3355'
-      const alignEntries = Object.entries(sp.alignment)
-      const opposed = alignEntries.some(([,v]) => v === 'opposed')
-      const ringCol = opposed ? '#ff3355' : col
-      L.circle([p.lat, p.lng], {
-        radius: 650, color: ringCol, weight: 2.5, fillColor: ringCol, fillOpacity: 0.06, dashArray: '6,4',
-      }).bindPopup(buildSovereignPopup(p, sp), { className: 'mpop', maxWidth: 330 }).addTo(sovereignLayer)
-    })
-    layers.current.sovereign = sovereignLayer
-
-    // OmniMesh Network layer
-    const omnimeshLayer = L.layerGroup()
-    const activeNodes = OMNIMESH_NODES.filter(n => n.status === 'active')
-    activeNodes.forEach((a, i) => {
-      activeNodes.forEach((b, j) => {
-        if (j <= i) return
-        L.polyline([[a.lat, a.lng], [b.lat, b.lng]], {
-          color: 'rgba(0,180,255,.22)', weight: 1.5, dashArray: '3,6',
-        }).addTo(omnimeshLayer)
-      })
-    })
-    OMNIMESH_NODES.forEach(node => {
-      const col = OMNIMESH_COLORS[node.type] || '#fff'
-      const opacity = node.status === 'active' ? 1 : node.status === 'planned' ? 0.55 : 0.30
-      const icon = L.divIcon({
-        html: `<div class="mesh-marker" style="--mc:${col};opacity:${opacity}">
-          <div class="mesh-dot"></div>
-          <div class="mesh-ring"></div>
-          <div class="mesh-lbl">${node.type}</div>
-        </div>`,
-        className: '', iconSize: [36, 36], iconAnchor: [18, 18],
-      })
-      L.marker([node.lat, node.lng], { icon, zIndexOffset: 350 })
-        .bindPopup(`<div class="pt" style="color:${col}">📡 ${node.label}</div>
-          <div class="pr"><span class="pk">Type</span><span class="pv">${node.type}</span></div>
-          <div class="pr"><span class="pk">Status</span><span class="pv" style="color:${node.status === 'active' ? '#00ff88' : node.status === 'planned' ? '#ffcc00' : '#4a6278'}">${node.status.toUpperCase()}</span></div>
-          <div style="font-size:9px;color:#ccd8e8;line-height:1.55;margin-top:6px">${node.note}</div>`, { className: 'mpop', maxWidth: 280 })
-        .addTo(omnimeshLayer)
-    })
-    layers.current.omnimesh = omnimeshLayer
-
-    // Load GeoJSON layers
-    fetch('/data/hazard-zones.geojson').then(r => r.json()).then(data => {
-      const hazLayer = L.geoJSON(data, {
-        style: f => {
-          const hc = HAZARD_COLORS[f.properties.type] || {}
-          return { color: hc[f.properties.level] || 'rgba(255,0,0,.4)', weight: 1, fillColor: hc[f.properties.level] || 'rgba(255,0,0,.3)', fillOpacity: .55, dashArray: f.properties.type === 'flood' ? '' : '4,3' }
+    const map = new maplibregl.Map({
+      container: divRef.current,
+      style: {
+        version: 8,
+        sources: {
+          carto: {
+            type: 'raster',
+            tiles: [
+              'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+              'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+              'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+              'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
+            ],
+            tileSize: 256, maxzoom: 19,
+          },
         },
-        onEachFeature: (f, layer) => {
-          layer.bindPopup(`<div class="pt">⚠ ${f.properties.type.replace('_', ' ').toUpperCase()} — ${f.properties.level.toUpperCase()}</div><div style="font-size:10px;color:#ccd8e8;line-height:1.5">${f.properties.description}</div>`, { className: 'mpop' })
-        },
-      })
-      layers.current.hazard = hazLayer
-    }).catch(() => {})
+        layers: [{ id: 'carto-base', type: 'raster', source: 'carto' }],
+      },
+      center: [120.47, 14.65], zoom: 11, minZoom: 8,
+      maxBounds: [[118.8, 13.2], [122.2, 16.5]],
+      attributionControl: false,
+    })
 
-    fetch('/data/clup-zoning.geojson').then(r => r.json()).then(data => {
-      const clupLayer = L.geoJSON(data, {
-        style: f => {
-          const col = ZONE_COLORS[f.properties.zone] || 'rgba(180,180,180,.3)'
-          return { color: col, weight: 1.5, fillColor: col, fillOpacity: .5 }
-        },
-        onEachFeature: (f, layer) => {
-          const col = ZONE_COLORS[f.properties.zone] || '#fff'
-          layer.bindPopup(`<div class="pt" style="color:${col}">⬡ ${f.properties.zone.toUpperCase()} — ${f.properties.municipality}</div><div style="font-size:10px;color:#ccd8e8;line-height:1.5">${f.properties.description}</div>`, { className: 'mpop' })
-        },
-      })
-      layers.current.clup = clupLayer
-    }).catch(() => {})
+    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right')
+    map$.current = map
 
-    // Mouse coords
-    map.on('mousemove', e => setCoords({ lat: e.latlng.lat.toFixed(4), lng: e.latlng.lng.toFixed(4) }))
+    map.on('mousemove', e =>
+      setCoords({ lat: e.lngLat.lat.toFixed(4), lng: e.lngLat.lng.toFixed(4) }))
 
-    // Map click to deploy
     map.on('click', e => {
-      if (!placing.current || !placing.assetId) return
-      const { lat, lng } = e.latlng
-      const score = calcScore(lat, lng, placing.assetId)
-      const sc = scoreColor(score.total)
-      const asset = ASSETS[placing.assetId]
-      const pinId = Date.now().toString()
-      const muni = MUNICIPALITIES.reduce((b, m) => { const d = Math.hypot(lat - m.lat, lng - m.lng); return d < b.d ? { m, d } : b }, { d: Infinity }).m?.name || 'Bataan'
-      const icon = L.divIcon({
-        html: `<div class="amark" style="color:${asset.color};background:rgba(0,0,0,.85);border-color:${asset.color}">${asset.icon}<div class="score-badge" style="color:${sc}">${score.total}</div></div>`,
-        className: '', iconSize: [34, 34], iconAnchor: [17, 17],
-      })
-      const marker = L.marker([lat, lng], { icon })
-        .bindPopup(buildScorePopup(lat, lng, placing.assetId, score, pinId), { className: 'mpop', maxWidth: 280 })
-        .addTo(map)
-        .openPopup()
-      pinMarkers.current.set(pinId, marker)
-      onPinDeploy?.({ id: pinId, lat, lng, assetId: placing.assetId, score, muni })
-      onScoreUpdate?.(score.total)
+      const { active, assetId } = placing.current
+      if (!active || !assetId) return
+      deployPin(e.lngLat.lat, e.lngLat.lng, assetId)
     })
 
-    setTimeout(() => map.flyTo([14.62, 120.47], 11, { duration: 2.0 }), 300)
+    map.on('load', () => {
+      loaded.current = true
+      buildLayers(map)
+    })
 
-    // Invalidate size on window resize so map fills container correctly
-    const onResize = () => map.invalidateSize()
+    const onResize = () => map.resize()
     window.addEventListener('resize', onResize)
+    setTimeout(() => map.flyTo({ center: [120.47, 14.62], zoom: 11, duration: 2000 }), 300)
     return () => window.removeEventListener('resize', onResize)
   }, [])
 
-  // Layer toggles
-  useEffect(() => { toggleLayer('zones',   zonesOn)   }, [zonesOn])
-  useEffect(() => { toggleLayer('infra',   infraOn)   }, [infraOn])
-  useEffect(() => { toggleLayer('recs',    recsOn)    }, [recsOn])
-  useEffect(() => { toggleLayer('land',    landOn)    }, [landOn])
-  useEffect(() => { toggleLayer('heatmap', heatmapOn) }, [heatmapOn])
-  useEffect(() => { toggleLayer('hazard',   false)     }, []) // off by default, controlled externally
-  useEffect(() => { toggleLayer('clup',    false)     }, []) // off by default
-  useEffect(() => { toggleLayer('sovereign', sovereignOn) }, [sovereignOn])
-  useEffect(() => { toggleLayer('omnimesh',  omnimeshOn)  }, [omnimeshOn])
-  useEffect(() => { toggleLayer('strategic', strategicOn) }, [strategicOn])
+  // ── DEPLOY PIN ────────────────────────────────────────────────────────────
+  function deployPin(lat, lng, assetId) {
+    const map   = map$.current
+    const score = calcScore(lat, lng, assetId)
+    const asset = ASSETS[assetId]
+    const sc    = scoreColor(score.total)
+    const pinId = Date.now().toString()
+    const muni  = MUNICIPALITIES.reduce((b, m) => {
+      const d = Math.hypot(lat - m.lat, lng - m.lng)
+      return d < b.d ? { m, d } : b
+    }, { d: Infinity }).m?.name || 'Bataan'
 
-  // Fly to target when requested from sidebar
-  useEffect(() => {
-    if (flyTarget && mapInstance.current) {
-      mapInstance.current.flyTo([flyTarget.lat, flyTarget.lng], 15, { duration: 1.4 })
-    }
-  }, [flyTarget])
-
-  useEffect(() => {
-    placing.current = !!selectedAsset
-    placing.assetId = selectedAsset
-    if (mapRef.current) {
-      mapRef.current.style.cursor = selectedAsset ? 'crosshair' : ''
-    }
-  }, [selectedAsset])
-
-  function toggleLayer(name, on) {
-    const map = mapInstance.current
-    const layer = layers.current[name]
-    if (!map || !layer) return
-    if (on) map.addLayer(layer)
-    else     map.removeLayer(layer)
+    const el = mkEl(`<div class="amark" style="color:${asset.color};background:rgba(0,0,0,.85);border-color:${asset.color}">${asset.icon}<div class="score-badge" style="color:${sc}">${score.total}</div></div>`)
+    const popup = new maplibregl.Popup({ className:'mpop', maxWidth:'280px' })
+      .setHTML(buildScorePopup(lat, lng, assetId, score, pinId))
+    const marker = new maplibregl.Marker({ element: el })
+      .setLngLat([lng, lat])
+      .setPopup(popup)
+      .addTo(map)
+    marker.togglePopup()
+    pinMks.current.set(pinId, marker)
+    cb.current.onPinDeploy?.({ id: pinId, lat, lng, assetId, score, muni })
+    cb.current.onScoreUpdate?.(score.total)
   }
 
-  // Expose toggle for external layers (hazard/clup/sovereign/omnimesh)
+  // ── BUILD ALL LAYERS ──────────────────────────────────────────────────────
+  function buildLayers(map) {
+
+    // Province outline ────────────────────────────────────────────────────
+    const provRing = xys(BATAAN_OUTLINE); provRing.push(provRing[0])
+    map.addSource('province', { type:'geojson', data:{ type:'Feature', geometry:{ type:'Polygon', coordinates:[provRing] } } })
+    map.addLayer({ id:'province-fill', type:'fill', source:'province', paint:{ 'fill-color':'rgba(0,100,255,0.04)', 'fill-opacity':1 } })
+    map.addLayer({ id:'province-line', type:'line', source:'province', paint:{ 'line-color':'rgba(0,180,255,0.55)', 'line-width':1.8, 'line-dasharray':[6,4] } })
+    map.on('click', 'province-fill', e => {
+      if (placing.current.active) return
+      new maplibregl.Popup({ className:'mpop' }).setLngLat(e.lngLat)
+        .setHTML('<div class="pt">PROVINCE OF BATAAN</div>').addTo(map)
+    })
+
+    // Corregidor ring + label ──────────────────────────────────────────────
+    const corrRing = circleRing(CORREGIDOR.lat, CORREGIDOR.lng, CORREGIDOR.radius, 64)
+    map.addSource('corregidor', { type:'geojson', data:{ type:'Feature', geometry:{ type:'LineString', coordinates:corrRing } } })
+    map.addLayer({ id:'corregidor-ring', type:'line', source:'corregidor', paint:{ 'line-color':'rgba(0,180,255,0.40)', 'line-width':1.2, 'line-dasharray':[5,4] } })
+    const corrEl = document.createElement('div')
+    corrEl.style.cssText = 'font-family:Orbitron,monospace;font-size:7.5px;color:rgba(0,180,255,.7);text-shadow:0 0 6px rgba(0,180,255,.5),0 1px 3px #000;white-space:nowrap;letter-spacing:.07em;text-align:center;pointer-events:none;line-height:1.3'
+    corrEl.innerHTML = 'CORREGIDOR<br>ISLAND'
+    new maplibregl.Marker({ element: corrEl }).setLngLat([CORREGIDOR.lng, CORREGIDOR.lat]).addTo(map)
+
+    // Municipality zone circles ───────────────────────────────────────────
+    const outerFt = [], innerFt = []
+    MUNICIPALITIES.forEach(m => {
+      const col   = zonalColor((m.zonalMin + m.zonalMax) / 2)
+      const props = { name:m.name, col, zonalMin:m.zonalMin, zonalMax:m.zonalMax, pop:m.pop, areaHa:m.areaHa, zoning:m.zoning.join(', '), features:m.features.join(' · ') }
+      outerFt.push({ type:'Feature', properties:props, geometry:{ type:'Polygon', coordinates:[circleRing(m.lat, m.lng, m.r * 1000)] } })
+      innerFt.push({ type:'Feature', properties:props, geometry:{ type:'Polygon', coordinates:[circleRing(m.lat, m.lng, m.r * 350)] } })
+    })
+    map.addSource('zones-outer', { type:'geojson', data:{ type:'FeatureCollection', features:outerFt } })
+    map.addSource('zones-inner', { type:'geojson', data:{ type:'FeatureCollection', features:innerFt } })
+    map.addLayer({ id:'zones-outer-fill', type:'fill', source:'zones-outer', paint:{ 'fill-color':['get','col'], 'fill-opacity':0.10 } })
+    map.addLayer({ id:'zones-inner-fill', type:'fill', source:'zones-inner', paint:{ 'fill-color':['get','col'], 'fill-opacity':0.20 } })
+    map.addLayer({ id:'zones-line', type:'line', source:'zones-outer', paint:{ 'line-color':['get','col'], 'line-width':1 } })
+    map.on('click', 'zones-outer-fill', e => {
+      if (placing.current.active) return
+      const p = e.features[0].properties
+      new maplibregl.Popup({ className:'mpop', maxWidth:'290px' }).setLngLat(e.lngLat)
+        .setHTML(`<div class="pt">${p.name.toUpperCase()}</div>
+          <div class="pr"><span class="pk">BIR Zonal Range</span><span class="pv">₱${Number(p.zonalMin).toLocaleString()}–₱${Number(p.zonalMax).toLocaleString()}/sqm</span></div>
+          <div class="pr"><span class="pk">Avg Zonal Value</span><span class="pv">₱${Math.round((Number(p.zonalMin)+Number(p.zonalMax))/2).toLocaleString()}/sqm</span></div>
+          <div class="pr"><span class="pk">Population</span><span class="pv">${Number(p.pop).toLocaleString()}</span></div>
+          <div class="pr"><span class="pk">Area</span><span class="pv">${Number(p.areaHa).toLocaleString()} ha</span></div>
+          <div class="pr"><span class="pk">Zoning</span><span class="pv">${p.zoning}</span></div>
+          <div class="pr"><span class="pk">Key Features</span><span class="pv" style="font-size:9px">${p.features}</span></div>`)
+        .addTo(map)
+    })
+    map.on('mouseenter', 'zones-outer-fill', () => { map.getCanvas().style.cursor = 'pointer' })
+    map.on('mouseleave', 'zones-outer-fill', () => { map.getCanvas().style.cursor = '' })
+
+    mkGroups.current.zones = MUNICIPALITIES.map(m => {
+      const col = zonalColor((m.zonalMin + m.zonalMax) / 2)
+      const el  = document.createElement('div')
+      el.style.cssText = `font-family:'Orbitron',monospace;font-size:8.5px;letter-spacing:.07em;color:${col};text-shadow:0 0 8px ${col},0 1px 3px #000;text-align:center;white-space:nowrap;pointer-events:none`
+      el.textContent = m.name.toUpperCase()
+      return new maplibregl.Marker({ element: el }).setLngLat([m.lng, m.lat]).addTo(map)
+    })
+
+    // Infrastructure markers ──────────────────────────────────────────────
+    const infCols = { port:'#00b4ff', freeport:'#ffcc00', power:'#ff6b35', road:'rgba(255,255,255,.5)', fiber:'#9c44ff' }
+    mkGroups.current.infra = Object.values(INFRA).map(inf => {
+      const col = infCols[inf.type] || '#fff'
+      const el  = mkEl(`<div class="infra-ic" style="border-color:${col}45;color:${col}"><span>${inf.icon}</span><span class="infra-lb">${inf.label}</span></div>`)
+      return new maplibregl.Marker({ element: el }).setLngLat([inf.lng, inf.lat]).addTo(map)
+    })
+
+    // Recommendation markers ──────────────────────────────────────────────
+    mkGroups.current.recs = []
+    Object.entries(RECS).forEach(([assetId, recs]) => {
+      const cfg = ASSETS[assetId]
+      recs.forEach((rec, i) => {
+        const sc  = scoreColor(rec.score)
+        const el  = mkEl(`<div class="amark rec-marker" style="color:${cfg.color};background:rgba(0,0,0,.78);border-color:${cfg.color}"><div class="rec-badge">#${i+1}</div>${cfg.icon}<div class="score-badge" style="color:${sc}">${rec.score}</div></div>`)
+        const pop = new maplibregl.Popup({ className:'mpop', maxWidth:'300px' })
+          .setHTML(`<div class="pt" style="color:${cfg.color}">${cfg.icon} ${rec.name}</div>
+            <div class="pr"><span class="pk">Score</span><span class="pv" style="color:${sc}">${rec.score}/100</span></div>
+            <div class="pr"><span class="pk">Tag</span><span class="pv">${rec.tag}</span></div>
+            <div style="font-size:9px;color:#ccd8e8;line-height:1.55;margin-top:6px">${rec.note}</div>`)
+        mkGroups.current.recs.push(
+          new maplibregl.Marker({ element: el }).setLngLat([rec.lng, rec.lat]).setPopup(pop).addTo(map)
+        )
+      })
+    })
+
+    // Land opportunity markers ────────────────────────────────────────────
+    mkGroups.current.land = LAND_OPPS.map(p => {
+      const urgColor = p.urgency === 'HIGH' ? '#ff3355' : p.urgency === 'MEDIUM' ? '#ff6b35' : '#4a6278'
+      const el  = mkEl(`<div class="land-mk"><div class="land-mk-score">${landCompatScore(p, null)}</div><div class="land-mk-inner" style="border-color:${urgColor}"><span class="land-mk-icon">🏗</span></div><div class="land-mk-urg" style="background:${urgColor}20;border:1px solid ${urgColor}50;color:${urgColor}">${p.urgency}</div></div>`)
+      const pop = new maplibregl.Popup({ className:'mpop', maxWidth:'300px' }).setHTML(buildLandPopup(p))
+      const mk  = new maplibregl.Marker({ element: el }).setLngLat([p.lng, p.lat]).setPopup(pop).addTo(map)
+      el.addEventListener('click', () => cb.current.onParcelSelect?.(p))
+      return mk
+    })
+
+    // CSV parcel circles ──────────────────────────────────────────────────
+    map.addSource('csv-parcels', { type:'geojson', data:{ type:'FeatureCollection', features:[] } })
+    map.addLayer({
+      id:'csv-circles', type:'circle', source:'csv-parcels',
+      paint: {
+        'circle-radius': 6,
+        'circle-color': ['match',['get','asset_class'],'forge','#ff6b35','hq','#00b4ff','haven','#00ff88','solar','#ffcc00','#9c44ff'],
+        'circle-stroke-width': 2,
+        'circle-stroke-color': ['match',['get','asset_class'],'forge','#ff6b35','hq','#00b4ff','haven','#00ff88','solar','#ffcc00','#9c44ff'],
+        'circle-opacity': 0.85,
+      },
+    })
+    map.on('click', 'csv-circles', e => {
+      if (placing.current.active) return
+      const p = e.features[0].properties
+      new maplibregl.Popup({ className:'mpop', maxWidth:'280px' }).setLngLat(e.lngLat)
+        .setHTML(`<div class="pt">${p.parcel_id} — ${p.municipality}</div>
+          <div class="pr"><span class="pk">Asset Class</span><span class="pv">${p.asset_class}</span></div>
+          <div class="pr"><span class="pk">BIR Value</span><span class="pv">₱${Number(p.bir_value_sqm).toLocaleString()}/sqm</span></div>
+          <div class="pr"><span class="pk">Zoning</span><span class="pv">${p.zoning}</span></div>
+          <div class="pr"><span class="pk">Status</span><span class="pv">${p.status}</span></div>
+          <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${p.lat},${p.lng}" target="_blank" style="display:block;margin-top:8px;padding:6px 10px;background:rgba(0,200,100,.15);border:1px solid rgba(0,200,100,.4);border-radius:4px;color:#00ff88;text-decoration:none;font-size:10px;text-align:center">📍 Open Street View</a>`)
+        .addTo(map)
+    })
+    map.on('mouseenter', 'csv-circles', () => { map.getCanvas().style.cursor = 'pointer' })
+    map.on('mouseleave', 'csv-circles', () => { map.getCanvas().style.cursor = '' })
+
+    // Heatmap ─────────────────────────────────────────────────────────────
+    const heatFts = []
+    for (let i = 0; i < 26; i++) for (let j = 0; j < 26; j++) {
+      const la = 14.43 + i * (14.90 - 14.43) / 25
+      const lo = 120.25 + j * (120.73 - 120.25) / 25
+      heatFts.push({ type:'Feature', geometry:{ type:'Point', coordinates:[lo, la] }, properties:{ w: calcScore(la, lo, 'forge').total / 100 } })
+    }
+    map.addSource('heatmap-data', { type:'geojson', data:{ type:'FeatureCollection', features:heatFts } })
+    map.addLayer({
+      id:'heatmap-layer', type:'heatmap', source:'heatmap-data',
+      layout:{ visibility:'none' },
+      paint: {
+        'heatmap-weight': ['get','w'],
+        'heatmap-intensity': 1.2,
+        'heatmap-radius': 35,
+        'heatmap-opacity': 0.70,
+        'heatmap-color': ['interpolate',['linear'],['heatmap-density'],
+          0,'rgba(0,0,0,0)', 0.3,'#00ff88', 0.6,'#ffcc00', 0.8,'#ff6b35', 1,'#ff3355'],
+      },
+    })
+
+    // Strategic context layer ─────────────────────────────────────────────
+    const stratDefs = [
+      { coords:SBFZ_POLY,    color:'rgba(255,204,0,0.65)',  fill:'rgba(255,204,0,0.06)',  label:'⬡ SBFZ',     lngLat:[120.290,14.840], labelCol:'#ffcc00' },
+      { coords:FAB_POLY,     color:'rgba(0,180,255,0.65)',  fill:'rgba(0,180,255,0.07)',  label:'⬡ FAB',      lngLat:[120.470,14.449], labelCol:'#00b4ff' },
+      { coords:HERMOSA_POLY, color:'rgba(0,255,136,0.60)',  fill:'rgba(0,255,136,0.06)',  label:'⬡ HEIP',     lngLat:[120.513,14.833], labelCol:'#00ff88' },
+      { coords:CLARK_POLY,   color:'rgba(156,68,255,0.60)', fill:'rgba(156,68,255,0.06)', label:'⬡ CLARK FZ', lngLat:[120.533,15.183], labelCol:'#9c44ff' },
+    ]
+    const stratPolyFts = stratDefs.map(s => {
+      const ring = xys(s.coords); ring.push(ring[0])
+      return { type:'Feature', properties:{ color:s.color, fill:s.fill }, geometry:{ type:'Polygon', coordinates:[ring] } }
+    })
+    map.addSource('strat-polys', { type:'geojson', data:{ type:'FeatureCollection', features:stratPolyFts } })
+    map.addSource('strat-line',  { type:'geojson', data:{ type:'Feature', geometry:{ type:'LineString', coordinates:xys(BCIB_LINE) } } })
+    map.addLayer({ id:'strat-fills', type:'fill',   source:'strat-polys', layout:{ visibility:'none' }, paint:{ 'fill-color':['get','fill'],  'fill-opacity':1 } })
+    map.addLayer({ id:'strat-lines', type:'line',   source:'strat-polys', layout:{ visibility:'none' }, paint:{ 'line-color':['get','color'], 'line-width':1.5, 'line-dasharray':[8,5] } })
+    map.addLayer({ id:'strat-bcib',  type:'line',   source:'strat-line',  layout:{ visibility:'none' }, paint:{ 'line-color':'#ffcc00', 'line-width':3, 'line-dasharray':[12,7], 'line-opacity':0.80 } })
+
+    const stratMks = []
+    stratDefs.forEach(s => {
+      const el = document.createElement('div')
+      el.style.cssText = `font-family:Orbitron,monospace;font-size:8px;color:${s.labelCol};text-shadow:0 0 8px ${s.labelCol},0 1px 3px #000;white-space:nowrap;letter-spacing:.07em;display:none`
+      el.textContent = s.label
+      stratMks.push(new maplibregl.Marker({ element: el }).setLngLat(s.lngLat).addTo(map))
+    })
+    // SFS airport
+    const sfsPop = new maplibregl.Popup({ className:'mpop', maxWidth:'260px' })
+      .setHTML(`<div class="pt" style="color:#ffcc00">✈ Subic Bay International Airport (SFS)</div><div style="font-size:10px;color:#ccd8e8;line-height:1.55">Within SBFZ — handles cargo + charter flights. Key logistics node for container equipment imports into the Subic-Clark-Bataan triangle.</div>`)
+    const sfsEl = mkEl(`<div class="strat-airport" style="border-color:#ffcc00;color:#ffcc00;display:none">✈ SFS</div>`)
+    stratMks.push(new maplibregl.Marker({ element: sfsEl }).setLngLat([120.270,14.796]).setPopup(sfsPop).addTo(map))
+    // CRK airport
+    const crkPop = new maplibregl.Popup({ className:'mpop', maxWidth:'260px' })
+      .setHTML(`<div class="pt" style="color:#9c44ff">✈ Clark International Airport (CRK)</div><div style="font-size:10px;color:#ccd8e8;line-height:1.55">Clark Freeport Zone, Pampanga. Second international gateway of Metro Manila area. ~45 km from Bataan's northern border.</div>`)
+    const crkEl = mkEl(`<div class="strat-airport" style="border-color:#9c44ff;color:#9c44ff;display:none">✈ CRK</div>`)
+    stratMks.push(new maplibregl.Marker({ element: crkEl }).setLngLat([120.560,15.187]).setPopup(crkPop).addTo(map))
+    // BCIB midpoint label
+    const bcibPop = new maplibregl.Popup({ className:'mpop', maxWidth:'300px' })
+      .setHTML(`<div class="pt" style="color:#ffcc00">🌉 Bataan-Cavite Interlink Bridge (BCIB)</div>
+        <div class="pr"><span class="pk">Route</span><span class="pv">Mariveles → Naic, Cavite</span></div>
+        <div class="pr"><span class="pk">Length</span><span class="pv">32.15 km</span></div>
+        <div class="pr"><span class="pk">Completion</span><span class="pv" style="color:#ffcc00">December 2029</span></div>
+        <div style="font-size:9px;color:#ccd8e8;line-height:1.55;margin-top:6px">Connects Mariveles to CALAX/CAVITEX, cutting Manila–Bataan travel by 3–4 hours. Key land appreciation trigger along the Manila Bay corridor.</div>`)
+    const bcibEl = mkEl(`<div style="font-family:Orbitron,monospace;font-size:8px;color:#ffcc00;text-shadow:0 0 10px #ffcc00,0 1px 3px #000;white-space:nowrap;letter-spacing:.07em;background:rgba(0,0,0,.55);padding:2px 5px;border-radius:3px;border:1px solid rgba(255,204,0,.3);display:none">⊶ BCIB 2029</div>`)
+    stratMks.push(new maplibregl.Marker({ element: bcibEl }).setLngLat([120.618,14.376]).setPopup(bcibPop).addTo(map))
+    mkGroups.current.strategic = stratMks
+
+    // Sovereign engagement rings ──────────────────────────────────────────
+    const sovFts = LAND_OPPS.flatMap(p => {
+      const sp = SOVEREIGN_PROFILES[p.id]
+      if (!sp) return []
+      const col     = sp.readiness >= 75 ? '#00ff88' : sp.readiness >= 45 ? '#ffcc00' : '#ff3355'
+      const ringCol = Object.values(sp.alignment).some(v => v === 'opposed') ? '#ff3355' : col
+      const ring    = circleRing(p.lat, p.lng, 650); ring.push(ring[0])
+      return [{ type:'Feature', id:p.id, properties:{ fillCol:`${ringCol}10`, lineCol:ringCol, pid:p.id }, geometry:{ type:'Polygon', coordinates:[ring] } }]
+    })
+    map.addSource('sovereign', { type:'geojson', data:{ type:'FeatureCollection', features:sovFts } })
+    map.addLayer({ id:'sov-fill', type:'fill', source:'sovereign', layout:{ visibility:'none' }, paint:{ 'fill-color':['get','fillCol'], 'fill-opacity':1 } })
+    map.addLayer({ id:'sov-line', type:'line', source:'sovereign', layout:{ visibility:'none' }, paint:{ 'line-color':['get','lineCol'], 'line-width':2.5, 'line-dasharray':[6,4] } })
+    map.on('click', 'sov-fill', e => {
+      if (placing.current.active) return
+      const pid = e.features[0].properties.pid
+      const p   = LAND_OPPS.find(x => x.id === pid)
+      const sp  = SOVEREIGN_PROFILES[pid]
+      if (!p || !sp) return
+      new maplibregl.Popup({ className:'mpop', maxWidth:'330px' }).setLngLat(e.lngLat)
+        .setHTML(buildSovereignPopup(p, sp)).addTo(map)
+    })
+    map.on('mouseenter', 'sov-fill', () => { map.getCanvas().style.cursor = 'pointer' })
+    map.on('mouseleave', 'sov-fill', () => { map.getCanvas().style.cursor = '' })
+
+    // OmniMesh network ────────────────────────────────────────────────────
+    const activeNodes = OMNIMESH_NODES.filter(n => n.status === 'active')
+    const omniLineFts = []
+    activeNodes.forEach((a, i) => {
+      activeNodes.forEach((b, j) => {
+        if (j <= i) return
+        omniLineFts.push({ type:'Feature', geometry:{ type:'LineString', coordinates:[[a.lng,a.lat],[b.lng,b.lat]] } })
+      })
+    })
+    map.addSource('omnimesh-lines', { type:'geojson', data:{ type:'FeatureCollection', features:omniLineFts } })
+    map.addLayer({ id:'omni-lines', type:'line', source:'omnimesh-lines', layout:{ visibility:'none' }, paint:{ 'line-color':'rgba(0,180,255,0.22)', 'line-width':1.5, 'line-dasharray':[3,6] } })
+    mkGroups.current.omnimesh = OMNIMESH_NODES.map(node => {
+      const col = OMNIMESH_COLORS[node.type] || '#fff'
+      const opc = node.status === 'active' ? 1 : node.status === 'planned' ? 0.55 : 0.30
+      const el  = mkEl(`<div class="mesh-marker" style="--mc:${col};opacity:${opc};display:none"><div class="mesh-dot"></div><div class="mesh-ring"></div><div class="mesh-lbl">${node.type}</div></div>`)
+      const pop = new maplibregl.Popup({ className:'mpop', maxWidth:'280px' })
+        .setHTML(`<div class="pt" style="color:${col}">📡 ${node.label}</div>
+          <div class="pr"><span class="pk">Type</span><span class="pv">${node.type}</span></div>
+          <div class="pr"><span class="pk">Status</span><span class="pv" style="color:${node.status==='active'?'#00ff88':node.status==='planned'?'#ffcc00':'#4a6278'}">${node.status.toUpperCase()}</span></div>
+          <div style="font-size:9px;color:#ccd8e8;line-height:1.55;margin-top:6px">${node.note}</div>`)
+      return new maplibregl.Marker({ element: el }).setLngLat([node.lng, node.lat]).setPopup(pop).addTo(map)
+    })
+
+    // Hazard layer (async) ────────────────────────────────────────────────
+    fetch('/data/hazard-zones.geojson').then(r => r.json()).then(data => {
+      if (!map$.current?.getStyle()) return
+      map.addSource('hazard-data', { type:'geojson', data })
+      map.addLayer({
+        id:'hazard-layer', type:'fill', source:'hazard-data',
+        layout:{ visibility:'none' },
+        paint:{
+          'fill-color':['match',['get','type'],
+            'flood',['match',['get','level'],'low','rgba(0,120,255,.35)','mid','rgba(0,60,200,.5)','rgba(0,0,200,.65)'],
+            'liquefaction',['match',['get','level'],'low','rgba(255,150,0,.30)','mid','rgba(255,100,0,.45)','rgba(255,50,0,.62)'],
+            ['match',['get','level'],'low','rgba(180,0,255,.28)','mid','rgba(140,0,220,.44)','rgba(100,0,200,.60)']],
+          'fill-opacity':1,
+        },
+      })
+      map.on('click','hazard-layer', e => {
+        if (placing.current.active) return
+        const p = e.features[0].properties
+        new maplibregl.Popup({ className:'mpop' }).setLngLat(e.lngLat)
+          .setHTML(`<div class="pt">⚠ ${p.type.replace('_',' ').toUpperCase()} — ${p.level.toUpperCase()}</div><div style="font-size:10px;color:#ccd8e8;line-height:1.5">${p.description}</div>`)
+          .addTo(map)
+      })
+    }).catch(() => {})
+
+    // CLUP layer (async) ──────────────────────────────────────────────────
+    fetch('/data/clup-zoning.geojson').then(r => r.json()).then(data => {
+      if (!map$.current?.getStyle()) return
+      map.addSource('clup-data', { type:'geojson', data })
+      map.addLayer({
+        id:'clup-layer', type:'fill', source:'clup-data',
+        layout:{ visibility:'none' },
+        paint:{
+          'fill-color':['match',['get','zone'],'Industrial','rgba(255,107,53,0.45)','Commercial','rgba(0,180,255,0.40)','Agricultural','rgba(0,255,136,0.35)','Protected','rgba(255,51,85,0.42)','rgba(180,180,180,0.3)'],
+          'fill-opacity':1,
+        },
+      })
+      map.on('click','clup-layer', e => {
+        if (placing.current.active) return
+        const p   = e.features[0].properties
+        const col = { Industrial:'rgba(255,107,53,1)', Commercial:'rgba(0,180,255,1)', Agricultural:'rgba(0,255,136,1)', Protected:'rgba(255,51,85,1)' }[p.zone] || '#fff'
+        new maplibregl.Popup({ className:'mpop' }).setLngLat(e.lngLat)
+          .setHTML(`<div class="pt" style="color:${col}">⬡ ${p.zone.toUpperCase()} — ${p.municipality}</div><div style="font-size:10px;color:#ccd8e8;line-height:1.5">${p.description}</div>`)
+          .addTo(map)
+      })
+    }).catch(() => {})
+  }
+
+  // ── csvParcels sync ───────────────────────────────────────────────────────
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      window.__blisToggleLayer = (name, on) => toggleLayer(name, on)
-      window.__blisRemovePin = (id) => {
-        const marker = pinMarkers.current.get(id)
-        if (marker && mapInstance.current) mapInstance.current.removeLayer(marker)
-        pinMarkers.current.delete(id)
-        onPinRemove?.(id)
-      }
+    if (!loaded.current || !csvParcels?.length) return
+    const map = map$.current
+    if (!map?.getSource('csv-parcels')) return
+    map.getSource('csv-parcels').setData({
+      type:'FeatureCollection',
+      features: csvParcels.map(p => ({
+        type:'Feature',
+        properties:{ ...p },
+        geometry:{ type:'Point', coordinates:[parseFloat(p.lng), parseFloat(p.lat)] },
+      })),
+    })
+  }, [csvParcels])
+
+  // ── LAYER TOGGLES ─────────────────────────────────────────────────────────
+  useEffect(() => { toggle('zones',     zonesOn)    }, [zonesOn])
+  useEffect(() => { toggle('infra',     infraOn)    }, [infraOn])
+  useEffect(() => { toggle('recs',      recsOn)     }, [recsOn])
+  useEffect(() => { toggle('land',      landOn)     }, [landOn])
+  useEffect(() => { toggle('heatmap',   heatmapOn)  }, [heatmapOn])
+  useEffect(() => { toggle('sovereign', sovereignOn)}, [sovereignOn])
+  useEffect(() => { toggle('omnimesh',  omnimeshOn) }, [omnimeshOn])
+  useEffect(() => { toggle('strategic', strategicOn)}, [strategicOn])
+
+  // External layer control (hazard/clup from page.js)
+  useEffect(() => {
+    if (typeof window !== 'undefined')
+      window.__blisToggleLayer = (name, on) => toggle(name, on)
+  }, [])
+
+  // Pin removal hook
+  useEffect(() => {
+    window.__blisRemovePin = id => {
+      const mk = pinMks.current.get(id)
+      if (mk) mk.remove()
+      pinMks.current.delete(id)
+      cb.current.onPinRemove?.(id)
     }
   }, [])
 
-  // Sync sidebar deletions → remove markers from map
+  // ── FLY TARGET ────────────────────────────────────────────────────────────
+  useEffect(() => {
+    if (flyTarget && map$.current)
+      map$.current.flyTo({ center:[flyTarget.lng, flyTarget.lat], zoom:15, duration:1400 })
+  }, [flyTarget])
+
+  // ── ASSET / PLACING MODE ──────────────────────────────────────────────────
+  useEffect(() => {
+    placing.current = { active: !!selectedAsset, assetId: selectedAsset }
+    if (divRef.current) divRef.current.style.cursor = selectedAsset ? 'crosshair' : ''
+  }, [selectedAsset])
+
+  // ── SYNC SIDEBAR DELETIONS ────────────────────────────────────────────────
   useEffect(() => {
     if (!deployedPins) return
     const ids = new Set(deployedPins.map(p => p.id))
-    pinMarkers.current.forEach((marker, id) => {
-      if (!ids.has(id)) {
-        if (mapInstance.current) mapInstance.current.removeLayer(marker)
-        pinMarkers.current.delete(id)
-      }
+    pinMks.current.forEach((mk, id) => {
+      if (!ids.has(id)) { mk.remove(); pinMks.current.delete(id) }
     })
   }, [deployedPins])
 
+  // ── RENDER ────────────────────────────────────────────────────────────────
   return (
-    <div style={{ flex: 1, position: 'relative', minHeight: 0, overflow: 'hidden' }}>
-      <div ref={mapRef} style={{ width: '100%', height: '100%' }} />
+    <div style={{ flex:1, position:'relative', minHeight:0, overflow:'hidden' }}>
+      <div ref={divRef} style={{ width:'100%', height:'100%' }} />
+
       <div className="map-coords">
         <span className="cl">LAT</span> <span>{coords.lat}°N</span>
         <span className="cl" style={{marginLeft:8}}>LNG</span> <span>{coords.lng}°E</span>
       </div>
 
-      {/* Map Legend */}
       <div className="map-legend">
         <button className="mleg-toggle" onClick={() => setLegendOpen(v => !v)}>
           <span>⬡</span> MAP LEGEND <span className="mleg-arrow">{legendOpen ? '▾' : '▸'}</span>
@@ -430,38 +520,29 @@ export default function MapInner({
         {legendOpen && (
           <div className="mleg-body">
             <div className="mleg-section">PROVINCE BOUNDARY</div>
-            <div className="mleg-row">
-              <div className="mleg-line dashed" style={{borderColor:'rgba(0,180,255,.7)'}} />
-              <span>Bataan province border outline</span>
-            </div>
+            <div className="mleg-row"><div className="mleg-line dashed" style={{borderColor:'rgba(0,180,255,.7)'}} /><span>Bataan province border</span></div>
 
             <div className="mleg-section" style={{marginTop:8}}>ZONAL VALUE ZONES</div>
-            <div className="mleg-row"><div className="mleg-dot" style={{background:'#00ff88'}} /><span>Low value — ₱800–2,500/sqm</span></div>
-            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ffcc00'}} /><span>Mid value — ₱2,500–5,000/sqm</span></div>
-            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ff6b35'}} /><span>High value — ₱5,000–8,500/sqm</span></div>
-            <div className="mleg-row" style={{fontSize:8,color:'var(--dim)',marginTop:2,paddingLeft:14}}>
-              <span>Dot size = municipality zone radius · Click for details</span>
-            </div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#00ff88'}} /><span>Low — ₱800–2,500/sqm</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ffcc00'}} /><span>Mid — ₱2,500–5,000/sqm</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ff6b35'}} /><span>High — ₱5,000–8,500/sqm</span></div>
 
             <div className="mleg-section" style={{marginTop:8}}>INFRASTRUCTURE</div>
-            <div className="mleg-row"><div className="mleg-dot" style={{background:'#00b4ff'}} /><span>Port / Freeport (SBFZ/SBMA)</span></div>
-            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ff6b35'}} /><span>Power grid / substation</span></div>
-            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ffcc00'}} /><span>Road / highway node</span></div>
-            <div className="mleg-row"><div className="mleg-dot" style={{background:'#9c44ff'}} /><span>Fiber / connectivity hub</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#00b4ff'}} /><span>Port / Freeport</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ff6b35'}} /><span>Power grid</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#9c44ff'}} /><span>Fiber / connectivity</span></div>
 
             <div className="mleg-section" style={{marginTop:8}}>LAND PARCELS</div>
-            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ff3355',borderRadius:2}} /><span>HIGH urgency — act now</span></div>
-            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ff6b35',borderRadius:2}} /><span>MEDIUM — good opportunity</span></div>
-            <div className="mleg-row"><div className="mleg-dot" style={{background:'#4a6278',borderRadius:2}} /><span>LOW — monitor & watch</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ff3355',borderRadius:2}} /><span>HIGH urgency</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ff6b35',borderRadius:2}} /><span>MEDIUM urgency</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#4a6278',borderRadius:2}} /><span>LOW urgency</span></div>
 
             <div className="mleg-section" style={{marginTop:8}}>DEPLOYED ASSETS</div>
-            <div className="mleg-row"><div className="mleg-dot" style={{background:'#00b4ff'}} /><span>🏛️ Firma HQ pin</span></div>
-            <div className="mleg-row"><div className="mleg-dot" style={{background:'#00ff88'}} /><span>🏘️ Haven Village pin</span></div>
-            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ff6b35'}} /><span>⛏️ Steel Forge pin</span></div>
-            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ffcc00'}} /><span>☀️ Solar Farm pin</span></div>
-            <div className="mleg-row" style={{fontSize:8,color:'var(--dim)',marginTop:2,paddingLeft:14}}>
-              <span>Score badge = composite 0–100 · Click pin to remove</span>
-            </div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#00b4ff'}} /><span>🏛️ Firma HQ</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#00ff88'}} /><span>🏘️ Haven Village</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ff6b35'}} /><span>⛏️ Steel Forge</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ffcc00'}} /><span>☀️ Solar Farm</span></div>
+            <div className="mleg-row" style={{fontSize:8,color:'var(--dim)',paddingLeft:14}}><span>Score badge = composite 0–100</span></div>
           </div>
         )}
       </div>
@@ -469,43 +550,27 @@ export default function MapInner({
   )
 }
 
-function buildMuniPopup(m) {
-  const avg = Math.round((m.zonalMin + m.zonalMax) / 2)
-  return `<div class="pt">${m.name.toUpperCase()}</div>
-    <div class="pr"><span class="pk">BIR Zonal Range</span><span class="pv">₱${m.zonalMin.toLocaleString()}–₱${m.zonalMax.toLocaleString()}/sqm</span></div>
-    <div class="pr"><span class="pk">Avg Zonal Value</span><span class="pv">₱${avg.toLocaleString()}/sqm</span></div>
-    <div class="pr"><span class="pk">Population</span><span class="pv">${m.pop.toLocaleString()}</span></div>
-    <div class="pr"><span class="pk">Area</span><span class="pv">${m.areaHa.toLocaleString()} ha</span></div>
-    <div class="pr"><span class="pk">Zoning</span><span class="pv">${m.zoning.join(', ')}</span></div>
-    <div class="pr"><span class="pk">Key Features</span><span class="pv" style="font-size:9px">${m.features.join(' · ')}</span></div>`
-}
-
-function buildRecPopup(rec, cfg) {
-  return `<div class="pt" style="color:${cfg.color}">${cfg.icon} ${rec.name}</div>
-    <div class="pr"><span class="pk">Score</span><span class="pv" style="color:${scoreColor(rec.score)}">${rec.score}/100</span></div>
-    <div class="pr"><span class="pk">Tag</span><span class="pv">${rec.tag}</span></div>
-    <div style="font-size:9px;color:#ccd8e8;line-height:1.55;margin-top:6px">${rec.note}</div>`
-}
-
+// ── POPUP BUILDERS ────────────────────────────────────────────────────────────
 function buildLandPopup(p) {
+  const muni = MUNICIPALITIES.find(m => m.id === p.muniId)?.name
   return `<div class="pt" style="color:#ffcc00">🏗 ${p.name}</div>
-    <div class="pr"><span class="pk">Municipality</span><span class="pv">${MUNICIPALITIES.find(m => m.id === p.muniId)?.name}</span></div>
+    <div class="pr"><span class="pk">Municipality</span><span class="pv">${muni}</span></div>
     <div class="pr"><span class="pk">Class</span><span class="pv">${p.class}</span></div>
     <div class="pr"><span class="pk">Price Range</span><span class="pv">₱${p.priceMin.toLocaleString()}–₱${p.priceMax.toLocaleString()}/sqm</span></div>
     <div class="pr"><span class="pk">Urgency</span><span class="pv">${p.urgency}</span></div>
     <div class="pr"><span class="pk">Legal</span><span class="pv" style="font-size:9px">${p.legal}</span></div>
     <a href="https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${p.lat},${p.lng}" target="_blank" style="display:block;margin-top:8px;padding:6px 10px;background:rgba(0,200,100,.15);border:1px solid rgba(0,200,100,.4);border-radius:4px;color:#00ff88;text-decoration:none;font-size:10px;text-align:center">📍 Open Street View</a>
-    <div style="font-size:9px;color:#ccd8e8;line-height:1.5;margin-top:6px;border-top:1px solid rgba(255,255,255,.06);padding-top:6px">${p.why.slice(0, 180)}…</div>`
+    <div style="font-size:9px;color:#ccd8e8;line-height:1.5;margin-top:6px;border-top:1px solid rgba(255,255,255,.06);padding-top:6px">${p.why.slice(0,180)}…</div>`
 }
 
 function buildSovereignPopup(p, sp) {
   const statusColor = { engaged:'#00ff88', pending:'#ffcc00', not_started:'#4a6278', opposed:'#ff3355' }
   const statusIcon  = { engaged:'✓', pending:'◌', not_started:'—', opposed:'✕' }
-  const tiers = [['Barangay','barangay'],['Municipality','municipality'],['Province','province'],['National','national']]
-  const readCol = sp.readiness >= 75 ? '#00ff88' : sp.readiness >= 45 ? '#ffcc00' : '#ff3355'
+  const tiers       = [['Barangay','barangay'],['Municipality','municipality'],['Province','province'],['National','national']]
+  const readCol     = sp.readiness >= 75 ? '#00ff88' : sp.readiness >= 45 ? '#ffcc00' : '#ff3355'
   return `<div class="pt" style="color:#00ff88">🏛 SOVEREIGN PROFILE — ${p.name}</div>
     <div class="pr"><span class="pk">Pathway Readiness</span><span class="pv" style="color:${readCol};font-family:Orbitron,monospace;font-weight:700">${sp.readiness}%</span></div>
-    <div style="height:4px;background:rgba(255,255,255,.06);border-radius:2px;margin:4px 0 8px"><div style="height:100%;width:${sp.readiness}%;background:${readCol};border-radius:2px;transition:.6s"></div></div>
+    <div style="height:4px;background:rgba(255,255,255,.06);border-radius:2px;margin:4px 0 8px"><div style="height:100%;width:${sp.readiness}%;background:${readCol};border-radius:2px"></div></div>
     <div style="font-family:Orbitron,monospace;font-size:7.5px;letter-spacing:.12em;color:#4a6278;margin-bottom:5px">LGU ALIGNMENT TIERS</div>
     ${tiers.map(([label,key]) => `<div class="pr"><span class="pk">${label}</span><span class="pv" style="color:${statusColor[sp.alignment[key]]}"><span style="font-family:Orbitron,monospace">${statusIcon[sp.alignment[key]]}</span> ${sp.alignment[key].replace('_',' ').toUpperCase()}</span></div>`).join('')}
     <div style="font-family:Orbitron,monospace;font-size:7.5px;letter-spacing:.12em;color:#4a6278;margin:8px 0 5px">NEXT ACTION</div>
