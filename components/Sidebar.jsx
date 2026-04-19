@@ -271,7 +271,7 @@ export default function Sidebar({
             <div key={i} className="pin-card">
               <div className="pch">
                 <span className="pci">{ASSETS[pin.assetId]?.icon}</span>
-                <span className="pcn">{ASSETS[pin.assetId]?.label}<br/><span style={{color:'var(--dim)',fontWeight:400}}>{pin.muni}</span></span>
+                <span className="pcn">{ASSETS[pin.assetId]?.label}<span className="pcn-muni">{pin.muni}</span></span>
                 <span className="pcs" style={{color: scoreColor(pin.score.total)}}>{pin.score.total}</span>
                 <span className="pdel" onClick={() => onPinDelete(pin.id)}>✕</span>
               </div>
