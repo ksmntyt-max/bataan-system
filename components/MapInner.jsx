@@ -193,6 +193,9 @@ export default function MapInner({
       trackUserLocation: false,
     }), 'top-right')
     map$.current = map
+    const canvas = map.getCanvas()
+    canvas.setAttribute('role', 'application')
+    canvas.setAttribute('aria-label', 'BLIS Interactive Land Map of Bataan and Subic Bay. Use arrow keys to pan, +/- to zoom.')
 
     map.on('mousemove', e =>
       setCoords({ lat: e.lngLat.lat.toFixed(4), lng: e.lngLat.lng.toFixed(4) }))

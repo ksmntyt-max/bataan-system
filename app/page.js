@@ -10,6 +10,7 @@ import ZonePanel from '@/components/ZonePanel'
 import InvestmentCalc from '@/components/InvestmentCalc'
 import { ASSETS, ZONE_DATA } from '@/lib/data'
 import { scoreColor } from '@/lib/scoring'
+import { useBLISState } from '@/lib/useBLISState'
 
 const MapWrapper = dynamic(() => import('@/components/MapWrapper'), { ssr: false })
 
@@ -23,31 +24,26 @@ function parseCSV(text) {
 }
 
 export default function Home() {
-  const [entered,       setEntered]       = useState(() => {
+  // ── Central map state (single source of truth) ──────────────────────────
+  const { state, actions } = useBLISState()
+  const {
+    activeAsset, activeLayers, deployedPins, lastScore,
+    flyTarget, openPanel, activeParcel, selectedZone,
+  } = state
+  const {
+    heatmap: heatmapOn, zones: zonesOn, infra: infraOn, recs: recsOn, land: landOn,
+    hazard: hazardOn, clup: clupOn, sovereign: sovereignOn,
+    omnimesh: omnimeshOn, strategic: strategicOn,
+  } = activeLayers
+
+  // ── UI-only state (not shared across components) ─────────────────────────
+  const [entered,      setEntered]      = useState(() => {
     if (typeof window !== 'undefined') return sessionStorage.getItem('blis_entered') === '1'
     return false
   })
-  const [selectedAsset, setSelectedAsset] = useState(null)
-  const [heatmapOn,     setHeatmapOn]     = useState(false)
-  const [zonesOn,       setZonesOn]       = useState(true)
-  const [infraOn,       setInfraOn]       = useState(true)
-  const [recsOn,        setRecsOn]        = useState(true)
-  const [landOn,        setLandOn]        = useState(true)
-  const [hazardOn,      setHazardOn]      = useState(false)
-  const [clupOn,        setClupOn]        = useState(false)
-  const [sovereignOn,   setSovereignOn]   = useState(false)
-  const [omnimeshOn,    setOmnimeshOn]    = useState(false)
-  const [strategicOn,   setStrategicOn]   = useState(false)
-  const [deployedPins,  setDeployedPins]  = useState([])
-  const [lastScore,     setLastScore]     = useState(null)
-  const [selectedParcel,setSelectedParcel]= useState(null)
-  const [showCalc,      setShowCalc]      = useState(false)
-  const [selectedZone,  setSelectedZone]  = useState(null)
-  const [csvParcels,    setCsvParcels]    = useState([])
-  const [flyTarget,     setFlyTarget]     = useState(null)
-  const [mapRef,        setMapRef]        = useState(null)
-  const [hoveredAsset,  setHoveredAsset]  = useState(null)   // asset tooltip
-  const [tooltipX,      setTooltipX]      = useState(0)
+  const [csvParcels,   setCsvParcels]   = useState([])
+  const [hoveredAsset, setHoveredAsset] = useState(null)
+  const [tooltipX,     setTooltipX]     = useState(0)
   const toolbarRef = useRef(null)
 
   // Load CSV parcels
@@ -55,13 +51,11 @@ export default function Home() {
     fetch('/data/parcels.csv').then(r => r.text()).then(t => setCsvParcels(parseCSV(t))).catch(() => {})
   }, [])
 
-  // Hazard / CLUP / Sovereign / OmniMesh layer pass-through
-  useEffect(() => { if (typeof window !== 'undefined') window.__blisToggleLayer?.('hazard',    hazardOn)    }, [hazardOn])
-  useEffect(() => { if (typeof window !== 'undefined') window.__blisToggleLayer?.('clup',      clupOn)      }, [clupOn])
+  // Hazard / CLUP layer pass-through to MapLibre (imperative bridge)
+  useEffect(() => { if (typeof window !== 'undefined') window.__blisToggleLayer?.('hazard', hazardOn) }, [hazardOn])
+  useEffect(() => { if (typeof window !== 'undefined') window.__blisToggleLayer?.('clup',   clupOn)   }, [clupOn])
 
-  const handleFlyToRec = useCallback((rec) => {
-    setFlyTarget({ lat: rec.lat, lng: rec.lng })
-  }, [])
+  const handleFlyToRec = useCallback(rec => actions.flyTo({ lat: rec.lat, lng: rec.lng }), [actions.flyTo])
 
   if (!entered) return <GlobeScreen onEnter={() => { sessionStorage.setItem('blis_entered', '1'); setEntered(true) }} />
 
@@ -76,11 +70,11 @@ export default function Home() {
           <div className="tb-title">Bataan Land Intelligence System v1.2</div>
           <div className="tbsp" />
           <Link href="/compare" className="tb-btn" style={{textDecoration:'none'}}>📊 COMPARE</Link>
-          <button className={`tb-btn${heatmapOn ? ' on' : ''}`} onClick={() => setHeatmapOn(v => !v)}>⬡ HEATMAP</button>
-          <button className={`tb-btn${zonesOn   ? ' on' : ''}`} onClick={() => setZonesOn(v => !v)}>⬡ ZONES</button>
-          <button className={`tb-btn${infraOn   ? ' on' : ''}`} onClick={() => setInfraOn(v => !v)}>⬡ INFRA</button>
-          <button className={`tb-btn${hazardOn  ? ' on' : ''}`} onClick={() => setHazardOn(v => !v)} style={{borderColor:'rgba(255,51,85,.35)',color:'#ff3355'}}>⚠ HAZARD</button>
-          <button className={`tb-btn${clupOn    ? ' on' : ''}`} onClick={() => setClupOn(v => !v)} style={{borderColor:'rgba(156,68,255,.35)',color:'#9c44ff'}}>⬡ CLUP</button>
+          <button className={`tb-btn${heatmapOn ? ' on' : ''}`} onClick={() => actions.toggleLayer('heatmap')}>⬡ HEATMAP</button>
+          <button className={`tb-btn${zonesOn   ? ' on' : ''}`} onClick={() => actions.toggleLayer('zones')}>⬡ ZONES</button>
+          <button className={`tb-btn${infraOn   ? ' on' : ''}`} onClick={() => actions.toggleLayer('infra')}>⬡ INFRA</button>
+          <button className={`tb-btn${hazardOn  ? ' on' : ''}`} onClick={() => actions.toggleLayer('hazard')} style={{borderColor:'rgba(255,51,85,.35)',color:'#ff3355'}}>⚠ HAZARD</button>
+          <button className={`tb-btn${clupOn    ? ' on' : ''}`} onClick={() => actions.toggleLayer('clup')} style={{borderColor:'rgba(156,68,255,.35)',color:'#9c44ff'}}>⬡ CLUP</button>
           <div className="sdots">
             <div className="sdot live" /><div className="sdot live" /><div className="sdot" />
           </div>
@@ -88,43 +82,40 @@ export default function Home() {
 
         <div id="body-wrap">
           <Sidebar
-            selectedAsset={selectedAsset}
-            onAssetChange={setSelectedAsset}
+            selectedAsset={activeAsset}
+            onAssetChange={actions.selectAsset}
             heatmapOn={heatmapOn} zonesOn={zonesOn} infraOn={infraOn} recsOn={recsOn} landOn={landOn}
             hazardOn={hazardOn}     clupOn={clupOn}
             sovereignOn={sovereignOn} omnimeshOn={omnimeshOn} strategicOn={strategicOn}
-            onToggleHeatmap={() => setHeatmapOn(v => !v)}
-            onToggleZones={()   => setZonesOn(v => !v)}
-            onToggleInfra={()   => setInfraOn(v => !v)}
-            onToggleRecs={()    => setRecsOn(v => !v)}
-            onToggleLand={()    => setLandOn(v => !v)}
-            onToggleHazard={()  => setHazardOn(v => !v)}
-            onToggleClup={()    => setClupOn(v => !v)}
-            onToggleSovereign={() => setSovereignOn(v => !v)}
-            onToggleOmnimesh={() => setOmnimeshOn(v => !v)}
-            onToggleStrategic={() => setStrategicOn(v => !v)}
+            onToggleHeatmap={() => actions.toggleLayer('heatmap')}
+            onToggleZones={()   => actions.toggleLayer('zones')}
+            onToggleInfra={()   => actions.toggleLayer('infra')}
+            onToggleRecs={()    => actions.toggleLayer('recs')}
+            onToggleLand={()    => actions.toggleLayer('land')}
+            onToggleHazard={()  => actions.toggleLayer('hazard')}
+            onToggleClup={()    => actions.toggleLayer('clup')}
+            onToggleSovereign={() => actions.toggleLayer('sovereign')}
+            onToggleOmnimesh={() => actions.toggleLayer('omnimesh')}
+            onToggleStrategic={() => actions.toggleLayer('strategic')}
             deployedPins={deployedPins}
-            onPinDelete={id => {
-              setDeployedPins(p => p.filter(pin => pin.id !== id))
-              window.__blisRemovePin?.(id)
-            }}
+            onPinDelete={id => { actions.removePin(id); window.__blisRemovePin?.(id) }}
             onFlyToRec={handleFlyToRec}
-            onOpenCalc={() => setShowCalc(true)}
+            onOpenCalc={actions.openCalc}
           />
 
           <div id="map-wrap">
             <MapWrapper
-              selectedAsset={selectedAsset}
+              selectedAsset={activeAsset}
               heatmapOn={heatmapOn} zonesOn={zonesOn} infraOn={infraOn} recsOn={recsOn} landOn={landOn}
               sovereignOn={sovereignOn} omnimeshOn={omnimeshOn} strategicOn={strategicOn}
-              onParcelSelect={setSelectedParcel}
-              onZoneSelect={setSelectedZone}
-              onScoreUpdate={setLastScore}
+              onParcelSelect={actions.selectParcel}
+              onZoneSelect={actions.selectZone}
+              onScoreUpdate={actions.setScore}
               csvParcels={csvParcels}
               flyTarget={flyTarget}
               deployedPins={deployedPins}
-              onPinDeploy={pin => setDeployedPins(prev => [...prev, pin])}
-              onPinRemove={id => setDeployedPins(prev => prev.filter(p => p.id !== id))}
+              onPinDeploy={actions.addPin}
+              onPinRemove={actions.removePin}
             />
           </div>
         </div>
@@ -133,12 +124,17 @@ export default function Home() {
         <div id="toolbar" ref={toolbarRef}>
           <div className="tool-lbl">DEPLOY<br/>ASSET</div>
           <div className="tsep" />
-          <div className="tool-assets">
+          <div className="tool-assets" role="radiogroup" aria-label="Select asset type to deploy">
             {Object.values(ASSETS).map(a => (
               <div key={a.id}
-                className={`tab-btn2${selectedAsset === a.id ? ' on' : ''}`}
+                className={`tab-btn2${activeAsset === a.id ? ' on' : ''}`}
                 style={{'--bc': a.color}}
-                onClick={() => setSelectedAsset(selectedAsset === a.id ? null : a.id)}
+                role="radio"
+                aria-checked={activeAsset === a.id}
+                tabIndex={0}
+                aria-label={`${a.label}: ${a.tooltip?.tagline ?? ''}`}
+                onClick={() => actions.selectAsset(a.id)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') actions.selectAsset(a.id) }}
                 onMouseEnter={e => {
                   const btnRect = e.currentTarget.getBoundingClientRect()
                   const tbRect  = toolbarRef.current.getBoundingClientRect()
@@ -154,12 +150,12 @@ export default function Home() {
             ))}
           </div>
 
-          {/* Asset hover tooltip — appears above hovered button */}
+          {/* Asset hover tooltip */}
           {hoveredAsset && (() => {
             const a = ASSETS[hoveredAsset]
             const t = a.tooltip
             return (
-              <div id="asset-tooltip" style={{ left: tooltipX }}>
+              <div id="asset-tooltip" style={{ left: tooltipX }} role="tooltip">
                 <div className="tip-header" style={{ background: a.color }}>
                   <span className="tip-icon">{a.icon}</span>
                   <div>
@@ -175,8 +171,9 @@ export default function Home() {
               </div>
             )
           })()}
+
           <div className="tsep" />
-          <div className="tool-hint-wrap">
+          <div className="tool-hint-wrap" aria-live="polite" aria-atomic="true">
             {lastScore ? (
               <>
                 <div className="score-big">LAST COMPOSITE SCORE</div>
@@ -190,27 +187,27 @@ export default function Home() {
       </div>
 
       {/* Parcel detail panel */}
-      {selectedParcel && (
-        <ParcelPanel parcel={selectedParcel} onClose={() => setSelectedParcel(null)} />
+      {openPanel === 'parcel' && activeParcel && (
+        <ParcelPanel parcel={activeParcel} onClose={actions.closePanel} />
       )}
 
       {/* Zone info panel — AFAB / SBFZ */}
-      {selectedZone && ZONE_DATA[selectedZone] && (
+      {openPanel === 'zone' && selectedZone && ZONE_DATA[selectedZone] && (
         <ZonePanel
           zoneKey={selectedZone}
-          onClose={() => setSelectedZone(null)}
+          onClose={actions.closePanel}
           onDeployHere={key => {
             const z = ZONE_DATA[key]
-            if (z?.center) setFlyTarget({ lat: z.center.lat, lng: z.center.lng })
+            if (z?.center) actions.flyTo({ lat: z.center.lat, lng: z.center.lng })
           }}
         />
       )}
 
       {/* Investment comparison modal */}
-      {showCalc && <InvestmentCalc onClose={() => setShowCalc(false)} />}
+      {openPanel === 'calc' && <InvestmentCalc onClose={actions.closePanel} />}
 
       {/* Toast */}
-      <div id="toast"><div className="tt" id="tt" /><div id="tb" /></div>
+      <div id="toast" role="status" aria-live="polite"><div className="tt" id="tt" /><div id="tb" /></div>
     </>
   )
 }

@@ -206,7 +206,10 @@ export default function Sidebar({
           <div className="asset-grid">
             {Object.values(ASSETS).map(a => (
               <div key={a.id} className={`a-tile${selectedAsset === a.id ? ' sel' : ''}`}
-                style={{'--tc': a.color}} onClick={() => onAssetChange(selectedAsset === a.id ? null : a.id)}>
+                style={{'--tc': a.color}}
+                role="radio" aria-checked={selectedAsset === a.id} tabIndex={0}
+                onClick={() => onAssetChange(selectedAsset === a.id ? null : a.id)}
+                onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onAssetChange(selectedAsset === a.id ? null : a.id) } }}>
                 <span className="a-tile-icon">{a.icon}</span>
                 <div className="a-tile-name">{a.label}</div>
                 <div className="a-tile-sub" style={{color: a.color}}>{a.sub}</div>
@@ -222,7 +225,10 @@ export default function Sidebar({
             { label:'Land Parcels',       desc:'Pre-screened acquisition targets with urgency ratings',  on: landOn,    toggle: onToggleLand,    dot: '#ffcc00' },
             { label:'Composite Heatmap',  desc:'Province-wide investment score heat by location',        on: heatmapOn, toggle: onToggleHeatmap, dot: '#ff6b35' },
           ].map(l => (
-            <div key={l.label} className="lrow" onClick={l.toggle}>
+            <div key={l.label} className="lrow"
+              role="switch" aria-checked={l.on} tabIndex={0}
+              onClick={l.toggle}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); l.toggle() } }}>
               <div className={`tsw${l.on ? ' on' : ''}`}><div className="tth" /></div>
               <div className="ldot" style={{background: l.dot}} />
               <div className="lname-wrap">
@@ -240,7 +246,10 @@ export default function Sidebar({
             { label:'OmniMesh Network', desc:'Node/Sentinel/Pulse/Whisper topology — planned mesh coverage map',   on: omnimeshOn,   toggle: onToggleOmnimesh,   dot: '#00b4ff' },
             { label:'Strategic Context',desc:'SBFZ · Clark FZ · FAB · Hermosa Ecozone · Airports · BCIB 2029',    on: strategicOn,  toggle: onToggleStrategic,  dot: '#ffcc00' },
           ].map(l => (
-            <div key={l.label} className="lrow" onClick={l.toggle}>
+            <div key={l.label} className="lrow"
+              role="switch" aria-checked={l.on} tabIndex={0}
+              onClick={l.toggle}
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); l.toggle() } }}>
               <div className={`tsw${l.on ? ' on' : ''}`}><div className="tth" /></div>
               <div className="ldot" style={{background: l.dot}} />
               <div className="lname-wrap">
