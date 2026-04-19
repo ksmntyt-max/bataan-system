@@ -26,6 +26,15 @@ const GEO_IDS = {
   clup:      ['clup-layer'],
 }
 
+// Zoom range for HTML marker groups — outside range markers auto-hide
+const MARKER_ZOOM = {
+  zones:    { min: 8,   max: 14.5 },  // municipality labels — basemap takes over at z15
+  infra:    { min: 9.5, max: 18   },
+  recs:     { min: 9,   max: 18   },
+  land:     { min: 9,   max: 18   },
+  omnimesh: { min: 9,   max: 18   },
+}
+
 // ── HELPERS ───────────────────────────────────────────────────────────────────
 const xy  = ([lat, lng]) => [lng, lat]
 const xys = arr => arr.map(xy)
@@ -56,13 +65,15 @@ export default function MapInner({
   csvParcels, deployedPins, onPinDeploy, onPinRemove,
   flyTarget,
 }) {
-  const divRef   = useRef(null)
-  const map$     = useRef(null)
-  const loaded   = useRef(false)
-  const mkGroups = useRef({})          // name -> Marker[]
-  const placing  = useRef({ active: false, assetId: null })
-  const pinMks   = useRef(new Map())   // pinId -> Marker
-  const cb       = useRef({ onParcelSelect, onPinDeploy, onPinRemove, onScoreUpdate })
+  const divRef      = useRef(null)
+  const map$        = useRef(null)
+  const loaded      = useRef(false)
+  const mkGroups    = useRef({})          // name -> Marker[]
+  const placing     = useRef({ active: false, assetId: null })
+  const pinMks      = useRef(new Map())   // pinId -> Marker
+  const cb          = useRef({ onParcelSelect, onPinDeploy, onPinRemove, onScoreUpdate })
+  const groupOn     = useRef({})          // name -> boolean (user's desired on/off)
+  const lazyLoaded  = useRef({ hazard: false, clup: false })
   const [coords, setCoords] = useState({ lat:'14.6560', lng:'120.4900' })
   const [legendOpen, setLegendOpen] = useState(false)
 
@@ -73,13 +84,76 @@ export default function MapInner({
   function toggle(name, on) {
     const map = map$.current
     if (!map) return
+
+    groupOn.current[name] = on
+
+    // Lazy-load hazard / CLUP on first enable — fetch only when user actually wants them
+    if (on && !lazyLoaded.current[name] && (name === 'hazard' || name === 'clup')) {
+      lazyLoadLayer(name, map)
+      return
+    }
+
+    // GeoJSON layers
     for (const id of (GEO_IDS[name] || [])) {
       if (loaded.current && map.getLayer(id))
         map.setLayoutProperty(id, 'visibility', on ? 'visible' : 'none')
     }
+
+    // HTML markers — respect both user toggle and current zoom range
+    const zm = MARKER_ZOOM[name]
+    const z  = map.getZoom()
     for (const mk of (mkGroups.current[name] || [])) {
-      mk.getElement().style.display = on ? '' : 'none'
+      const show = on && (!zm || (z >= zm.min && z <= zm.max))
+      mk.getElement().style.display = show ? '' : 'none'
     }
+  }
+
+  // ── LAZY LAYER LOADER ─────────────────────────────────────────────────────
+  function lazyLoadLayer(name, map) {
+    const url = name === 'hazard' ? '/data/hazard-zones.geojson' : '/data/clup-zoning.geojson'
+    fetch(url).then(r => r.json()).then(data => {
+      if (!map$.current?.getStyle()) return
+      if (name === 'hazard') {
+        map.addSource('hazard-data', { type:'geojson', data })
+        map.addLayer({
+          id:'hazard-layer', type:'fill', source:'hazard-data',
+          minzoom: 9, layout:{ visibility:'visible' },
+          paint:{
+            'fill-color':['match',['get','type'],
+              'flood',      ['match',['get','level'],'low','rgba(0,120,255,.35)','mid','rgba(0,60,200,.5)', 'rgba(0,0,200,.65)'],
+              'liquefaction',['match',['get','level'],'low','rgba(255,150,0,.30)','mid','rgba(255,100,0,.45)','rgba(255,50,0,.62)'],
+              ['match',['get','level'],'low','rgba(180,0,255,.28)','mid','rgba(140,0,220,.44)','rgba(100,0,200,.60)']],
+            'fill-opacity':1,
+          },
+        })
+        map.on('click','hazard-layer', e => {
+          if (placing.current.active) return
+          const p = e.features[0].properties
+          new maplibregl.Popup({ className:'mpop' }).setLngLat(e.lngLat)
+            .setHTML(`<div class="pt">⚠ ${p.type.replace('_',' ').toUpperCase()} — ${p.level.toUpperCase()}</div><div style="font-size:10px;color:#ccd8e8;line-height:1.5">${p.description}</div>`)
+            .addTo(map)
+        })
+      } else {
+        map.addSource('clup-data', { type:'geojson', data })
+        map.addLayer({
+          id:'clup-layer', type:'fill', source:'clup-data',
+          minzoom: 9, layout:{ visibility:'visible' },
+          paint:{
+            'fill-color':['match',['get','zone'],'Industrial','rgba(255,107,53,0.45)','Commercial','rgba(0,180,255,0.40)','Agricultural','rgba(0,255,136,0.35)','Protected','rgba(255,51,85,0.42)','rgba(180,180,180,0.3)'],
+            'fill-opacity':1,
+          },
+        })
+        map.on('click','clup-layer', e => {
+          if (placing.current.active) return
+          const p   = e.features[0].properties
+          const col = { Industrial:'rgba(255,107,53,1)', Commercial:'rgba(0,180,255,1)', Agricultural:'rgba(0,255,136,1)', Protected:'rgba(255,51,85,1)' }[p.zone] || '#fff'
+          new maplibregl.Popup({ className:'mpop' }).setLngLat(e.lngLat)
+            .setHTML(`<div class="pt" style="color:${col}">⬡ ${p.zone.toUpperCase()} — ${p.municipality}</div><div style="font-size:10px;color:#ccd8e8;line-height:1.5">${p.description}</div>`)
+            .addTo(map)
+        })
+      }
+      lazyLoaded.current[name] = true
+    }).catch(() => {})
   }
 
   // ── INIT MAP ──────────────────────────────────────────────────────────────
@@ -115,6 +189,17 @@ export default function MapInner({
       const { active, assetId } = placing.current
       if (!active || !assetId) return
       deployPin(e.lngLat.lat, e.lngLat.lng, assetId)
+    })
+
+    // Zoom-based HTML marker visibility — auto-hide at irrelevant zoom levels
+    map.on('zoom', () => {
+      const z = map.getZoom()
+      Object.entries(MARKER_ZOOM).forEach(([name, { min, max }]) => {
+        if (groupOn.current[name] === false) return  // user toggled off — leave hidden
+        for (const mk of (mkGroups.current[name] || [])) {
+          mk.getElement().style.display = (z >= min && z <= max) ? '' : 'none'
+        }
+      })
     })
 
     map.on('load', () => {
@@ -159,8 +244,8 @@ export default function MapInner({
     // Province outline ────────────────────────────────────────────────────
     const provRing = xys(BATAAN_OUTLINE); provRing.push(provRing[0])
     map.addSource('province', { type:'geojson', data:{ type:'Feature', geometry:{ type:'Polygon', coordinates:[provRing] } } })
-    map.addLayer({ id:'province-fill', type:'fill', source:'province', paint:{ 'fill-color':'rgba(0,100,255,0.04)', 'fill-opacity':1 } })
-    map.addLayer({ id:'province-line', type:'line', source:'province', paint:{ 'line-color':'rgba(0,180,255,0.55)', 'line-width':1.8, 'line-dasharray':[6,4] } })
+    map.addLayer({ id:'province-fill', type:'fill',   source:'province', minzoom:7, paint:{ 'fill-color':'rgba(0,100,255,0.04)', 'fill-opacity':1 } })
+    map.addLayer({ id:'province-line', type:'line',   source:'province', minzoom:7, paint:{ 'line-color':'rgba(0,180,255,0.55)', 'line-width':1.8, 'line-dasharray':[6,4] } })
     map.on('click', 'province-fill', e => {
       if (placing.current.active) return
       new maplibregl.Popup({ className:'mpop' }).setLngLat(e.lngLat)
@@ -170,7 +255,7 @@ export default function MapInner({
     // Corregidor ring + label ──────────────────────────────────────────────
     const corrRing = circleRing(CORREGIDOR.lat, CORREGIDOR.lng, CORREGIDOR.radius, 64)
     map.addSource('corregidor', { type:'geojson', data:{ type:'Feature', geometry:{ type:'LineString', coordinates:corrRing } } })
-    map.addLayer({ id:'corregidor-ring', type:'line', source:'corregidor', paint:{ 'line-color':'rgba(0,180,255,0.40)', 'line-width':1.2, 'line-dasharray':[5,4] } })
+    map.addLayer({ id:'corregidor-ring', type:'line', source:'corregidor', minzoom:9, paint:{ 'line-color':'rgba(0,180,255,0.40)', 'line-width':1.2, 'line-dasharray':[5,4] } })
     const corrEl = document.createElement('div')
     corrEl.style.cssText = 'font-family:Orbitron,monospace;font-size:7.5px;color:rgba(0,180,255,.7);text-shadow:0 0 6px rgba(0,180,255,.5),0 1px 3px #000;white-space:nowrap;letter-spacing:.07em;text-align:center;pointer-events:none;line-height:1.3'
     corrEl.innerHTML = 'CORREGIDOR<br>ISLAND'
@@ -186,9 +271,9 @@ export default function MapInner({
     })
     map.addSource('zones-outer', { type:'geojson', data:{ type:'FeatureCollection', features:outerFt } })
     map.addSource('zones-inner', { type:'geojson', data:{ type:'FeatureCollection', features:innerFt } })
-    map.addLayer({ id:'zones-outer-fill', type:'fill', source:'zones-outer', paint:{ 'fill-color':['get','col'], 'fill-opacity':0.10 } })
-    map.addLayer({ id:'zones-inner-fill', type:'fill', source:'zones-inner', paint:{ 'fill-color':['get','col'], 'fill-opacity':0.20 } })
-    map.addLayer({ id:'zones-line', type:'line', source:'zones-outer', paint:{ 'line-color':['get','col'], 'line-width':1 } })
+    map.addLayer({ id:'zones-outer-fill', type:'fill', source:'zones-outer', minzoom:8, paint:{ 'fill-color':['get','col'], 'fill-opacity':0.10 } })
+    map.addLayer({ id:'zones-inner-fill', type:'fill', source:'zones-inner', minzoom:8, paint:{ 'fill-color':['get','col'], 'fill-opacity':0.20 } })
+    map.addLayer({ id:'zones-line',       type:'line', source:'zones-outer', minzoom:8, paint:{ 'line-color':['get','col'], 'line-width':1 } })
     map.on('click', 'zones-outer-fill', e => {
       if (placing.current.active) return
       const p = e.features[0].properties
@@ -249,18 +334,55 @@ export default function MapInner({
       return mk
     })
 
-    // CSV parcel circles ──────────────────────────────────────────────────
-    map.addSource('csv-parcels', { type:'geojson', data:{ type:'FeatureCollection', features:[] } })
+    // CSV parcel circles — clustered for performance at scale ────────────
+    map.addSource('csv-parcels', {
+      type:'geojson', data:{ type:'FeatureCollection', features:[] },
+      cluster: true, clusterMaxZoom: 13, clusterRadius: 50,
+    })
+    // Cluster bubbles (scaled + colored by count)
     map.addLayer({
-      id:'csv-circles', type:'circle', source:'csv-parcels',
-      paint: {
-        'circle-radius': 6,
-        'circle-color': ['match',['get','asset_class'],'forge','#ff6b35','hq','#00b4ff','haven','#00ff88','solar','#ffcc00','#9c44ff'],
-        'circle-stroke-width': 2,
-        'circle-stroke-color': ['match',['get','asset_class'],'forge','#ff6b35','hq','#00b4ff','haven','#00ff88','solar','#ffcc00','#9c44ff'],
-        'circle-opacity': 0.85,
+      id:'csv-clusters', type:'circle', source:'csv-parcels',
+      filter:['has','point_count'], minzoom: 9,
+      paint:{
+        'circle-color':  ['step',['get','point_count'],'#00b4ff',10,'#ffcc00',50,'#ff3355'],
+        'circle-radius': ['step',['get','point_count'],15,10,20,50,26],
+        'circle-stroke-width':2,
+        'circle-stroke-color':['step',['get','point_count'],'#00b4ff',10,'#ffcc00',50,'#ff3355'],
+        'circle-opacity':0.88,
       },
     })
+    // Cluster count label
+    map.addLayer({
+      id:'csv-cluster-count', type:'symbol', source:'csv-parcels',
+      filter:['has','point_count'], minzoom: 9,
+      layout:{
+        'text-field':['get','point_count_abbreviated'],
+        'text-font':['Open Sans Bold','Arial Unicode MS Bold'],
+        'text-size':11,
+      },
+      paint:{ 'text-color':'#000' },
+    })
+    // Individual (unclustered) points
+    map.addLayer({
+      id:'csv-circles', type:'circle', source:'csv-parcels',
+      filter:['!',['has','point_count']], minzoom: 9,
+      paint:{
+        'circle-radius':6,
+        'circle-color':['match',['get','asset_class'],'forge','#ff6b35','hq','#00b4ff','haven','#00ff88','solar','#ffcc00','#9c44ff'],
+        'circle-stroke-width':2,
+        'circle-stroke-color':['match',['get','asset_class'],'forge','#ff6b35','hq','#00b4ff','haven','#00ff88','solar','#ffcc00','#9c44ff'],
+        'circle-opacity':0.85,
+      },
+    })
+    // Click cluster → zoom to expand
+    map.on('click', 'csv-clusters', e => {
+      const feat = map.queryRenderedFeatures(e.point, { layers:['csv-clusters'] })[0]
+      map.getSource('csv-parcels').getClusterExpansionZoom(feat.properties.cluster_id)
+        .then(zoom => map.easeTo({ center: feat.geometry.coordinates, zoom: zoom + 0.5 }))
+        .catch(() => {})
+    })
+    map.on('mouseenter', 'csv-clusters', () => { map.getCanvas().style.cursor = 'pointer' })
+    map.on('mouseleave', 'csv-clusters', () => { map.getCanvas().style.cursor = '' })
     map.on('click', 'csv-circles', e => {
       if (placing.current.active) return
       const p = e.features[0].properties
@@ -286,7 +408,7 @@ export default function MapInner({
     map.addSource('heatmap-data', { type:'geojson', data:{ type:'FeatureCollection', features:heatFts } })
     map.addLayer({
       id:'heatmap-layer', type:'heatmap', source:'heatmap-data',
-      layout:{ visibility:'none' },
+      minzoom: 8, layout:{ visibility:'none' },
       paint: {
         'heatmap-weight': ['get','w'],
         'heatmap-intensity': 1.2,
@@ -310,9 +432,9 @@ export default function MapInner({
     })
     map.addSource('strat-polys', { type:'geojson', data:{ type:'FeatureCollection', features:stratPolyFts } })
     map.addSource('strat-line',  { type:'geojson', data:{ type:'Feature', geometry:{ type:'LineString', coordinates:xys(BCIB_LINE) } } })
-    map.addLayer({ id:'strat-fills', type:'fill',   source:'strat-polys', layout:{ visibility:'none' }, paint:{ 'fill-color':['get','fill'],  'fill-opacity':1 } })
-    map.addLayer({ id:'strat-lines', type:'line',   source:'strat-polys', layout:{ visibility:'none' }, paint:{ 'line-color':['get','color'], 'line-width':1.5, 'line-dasharray':[8,5] } })
-    map.addLayer({ id:'strat-bcib',  type:'line',   source:'strat-line',  layout:{ visibility:'none' }, paint:{ 'line-color':'#ffcc00', 'line-width':3, 'line-dasharray':[12,7], 'line-opacity':0.80 } })
+    map.addLayer({ id:'strat-fills', type:'fill', source:'strat-polys', minzoom:7, layout:{ visibility:'none' }, paint:{ 'fill-color':['get','fill'],  'fill-opacity':1 } })
+    map.addLayer({ id:'strat-lines', type:'line', source:'strat-polys', minzoom:7, layout:{ visibility:'none' }, paint:{ 'line-color':['get','color'], 'line-width':1.5, 'line-dasharray':[8,5] } })
+    map.addLayer({ id:'strat-bcib',  type:'line', source:'strat-line',  minzoom:7, layout:{ visibility:'none' }, paint:{ 'line-color':'#ffcc00', 'line-width':3, 'line-dasharray':[12,7], 'line-opacity':0.80 } })
 
     const stratMks = []
     stratDefs.forEach(s => {
@@ -352,8 +474,8 @@ export default function MapInner({
       return [{ type:'Feature', id:p.id, properties:{ fillCol:`${ringCol}10`, lineCol:ringCol, pid:p.id }, geometry:{ type:'Polygon', coordinates:[ring] } }]
     })
     map.addSource('sovereign', { type:'geojson', data:{ type:'FeatureCollection', features:sovFts } })
-    map.addLayer({ id:'sov-fill', type:'fill', source:'sovereign', layout:{ visibility:'none' }, paint:{ 'fill-color':['get','fillCol'], 'fill-opacity':1 } })
-    map.addLayer({ id:'sov-line', type:'line', source:'sovereign', layout:{ visibility:'none' }, paint:{ 'line-color':['get','lineCol'], 'line-width':2.5, 'line-dasharray':[6,4] } })
+    map.addLayer({ id:'sov-fill', type:'fill', source:'sovereign', minzoom:10, layout:{ visibility:'none' }, paint:{ 'fill-color':['get','fillCol'], 'fill-opacity':1 } })
+    map.addLayer({ id:'sov-line', type:'line', source:'sovereign', minzoom:10, layout:{ visibility:'none' }, paint:{ 'line-color':['get','lineCol'], 'line-width':2.5, 'line-dasharray':[6,4] } })
     map.on('click', 'sov-fill', e => {
       if (placing.current.active) return
       const pid = e.features[0].properties.pid
@@ -376,7 +498,7 @@ export default function MapInner({
       })
     })
     map.addSource('omnimesh-lines', { type:'geojson', data:{ type:'FeatureCollection', features:omniLineFts } })
-    map.addLayer({ id:'omni-lines', type:'line', source:'omnimesh-lines', layout:{ visibility:'none' }, paint:{ 'line-color':'rgba(0,180,255,0.22)', 'line-width':1.5, 'line-dasharray':[3,6] } })
+    map.addLayer({ id:'omni-lines', type:'line', source:'omnimesh-lines', minzoom:9, layout:{ visibility:'none' }, paint:{ 'line-color':'rgba(0,180,255,0.22)', 'line-width':1.5, 'line-dasharray':[3,6] } })
     mkGroups.current.omnimesh = OMNIMESH_NODES.map(node => {
       const col = OMNIMESH_COLORS[node.type] || '#fff'
       const opc = node.status === 'active' ? 1 : node.status === 'planned' ? 0.55 : 0.30
@@ -389,51 +511,8 @@ export default function MapInner({
       return new maplibregl.Marker({ element: el }).setLngLat([node.lng, node.lat]).setPopup(pop).addTo(map)
     })
 
-    // Hazard layer (async) ────────────────────────────────────────────────
-    fetch('/data/hazard-zones.geojson').then(r => r.json()).then(data => {
-      if (!map$.current?.getStyle()) return
-      map.addSource('hazard-data', { type:'geojson', data })
-      map.addLayer({
-        id:'hazard-layer', type:'fill', source:'hazard-data',
-        layout:{ visibility:'none' },
-        paint:{
-          'fill-color':['match',['get','type'],
-            'flood',['match',['get','level'],'low','rgba(0,120,255,.35)','mid','rgba(0,60,200,.5)','rgba(0,0,200,.65)'],
-            'liquefaction',['match',['get','level'],'low','rgba(255,150,0,.30)','mid','rgba(255,100,0,.45)','rgba(255,50,0,.62)'],
-            ['match',['get','level'],'low','rgba(180,0,255,.28)','mid','rgba(140,0,220,.44)','rgba(100,0,200,.60)']],
-          'fill-opacity':1,
-        },
-      })
-      map.on('click','hazard-layer', e => {
-        if (placing.current.active) return
-        const p = e.features[0].properties
-        new maplibregl.Popup({ className:'mpop' }).setLngLat(e.lngLat)
-          .setHTML(`<div class="pt">⚠ ${p.type.replace('_',' ').toUpperCase()} — ${p.level.toUpperCase()}</div><div style="font-size:10px;color:#ccd8e8;line-height:1.5">${p.description}</div>`)
-          .addTo(map)
-      })
-    }).catch(() => {})
-
-    // CLUP layer (async) ──────────────────────────────────────────────────
-    fetch('/data/clup-zoning.geojson').then(r => r.json()).then(data => {
-      if (!map$.current?.getStyle()) return
-      map.addSource('clup-data', { type:'geojson', data })
-      map.addLayer({
-        id:'clup-layer', type:'fill', source:'clup-data',
-        layout:{ visibility:'none' },
-        paint:{
-          'fill-color':['match',['get','zone'],'Industrial','rgba(255,107,53,0.45)','Commercial','rgba(0,180,255,0.40)','Agricultural','rgba(0,255,136,0.35)','Protected','rgba(255,51,85,0.42)','rgba(180,180,180,0.3)'],
-          'fill-opacity':1,
-        },
-      })
-      map.on('click','clup-layer', e => {
-        if (placing.current.active) return
-        const p   = e.features[0].properties
-        const col = { Industrial:'rgba(255,107,53,1)', Commercial:'rgba(0,180,255,1)', Agricultural:'rgba(0,255,136,1)', Protected:'rgba(255,51,85,1)' }[p.zone] || '#fff'
-        new maplibregl.Popup({ className:'mpop' }).setLngLat(e.lngLat)
-          .setHTML(`<div class="pt" style="color:${col}">⬡ ${p.zone.toUpperCase()} — ${p.municipality}</div><div style="font-size:10px;color:#ccd8e8;line-height:1.5">${p.description}</div>`)
-          .addTo(map)
-      })
-    }).catch(() => {})
+    // Hazard + CLUP are lazy-loaded — fetched only when user first toggles them ON
+    // See lazyLoadLayer() above
   }
 
   // ── csvParcels sync ───────────────────────────────────────────────────────
