@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import Link from 'next/link'
 import GlobeScreen from '@/components/GlobeScreen'
@@ -44,6 +44,9 @@ export default function Home() {
   const [csvParcels,    setCsvParcels]    = useState([])
   const [flyTarget,     setFlyTarget]     = useState(null)
   const [mapRef,        setMapRef]        = useState(null)
+  const [hoveredAsset,  setHoveredAsset]  = useState(null)   // asset tooltip
+  const [tooltipX,      setTooltipX]      = useState(0)
+  const toolbarRef = useRef(null)
 
   // Load CSV parcels
   useEffect(() => {
@@ -124,18 +127,51 @@ export default function Home() {
         </div>
 
         {/* Bottom toolbar */}
-        <div id="toolbar">
+        <div id="toolbar" ref={toolbarRef}>
           <div className="tool-lbl">DEPLOY<br/>ASSET</div>
           <div className="tsep" />
           <div className="tool-assets">
             {Object.values(ASSETS).map(a => (
-              <div key={a.id} className={`tab-btn2${selectedAsset === a.id ? ' on' : ''}`}
-                style={{'--bc': a.color}} onClick={() => setSelectedAsset(selectedAsset === a.id ? null : a.id)}>
+              <div key={a.id}
+                className={`tab-btn2${selectedAsset === a.id ? ' on' : ''}`}
+                style={{'--bc': a.color}}
+                onClick={() => setSelectedAsset(selectedAsset === a.id ? null : a.id)}
+                onMouseEnter={e => {
+                  const btnRect = e.currentTarget.getBoundingClientRect()
+                  const tbRect  = toolbarRef.current.getBoundingClientRect()
+                  const x = btnRect.left - tbRect.left + btnRect.width / 2 - 140
+                  setTooltipX(Math.max(8, Math.min(x, tbRect.width - 296)))
+                  setHoveredAsset(a.id)
+                }}
+                onMouseLeave={() => setHoveredAsset(null)}
+              >
                 <span className="ti2">{a.icon}</span>
                 <span className="tn2">{a.label}</span>
               </div>
             ))}
           </div>
+
+          {/* Asset hover tooltip — appears above hovered button */}
+          {hoveredAsset && (() => {
+            const a = ASSETS[hoveredAsset]
+            const t = a.tooltip
+            return (
+              <div id="asset-tooltip" style={{ left: tooltipX }}>
+                <div className="tip-header" style={{ background: a.color }}>
+                  <span className="tip-icon">{a.icon}</span>
+                  <div>
+                    <strong>{a.label}</strong>
+                    <small>{t.tagline}</small>
+                  </div>
+                </div>
+                <div className="tip-body">
+                  <p className="tip-desc">{t.description}</p>
+                  <div className="tip-meta"><span>📍 Best Zones</span> · {t.bestZones.join(', ')}</div>
+                  <div className="tip-incentive">💰 {t.incentive}</div>
+                </div>
+              </div>
+            )
+          })()}
           <div className="tsep" />
           <div className="tool-hint-wrap">
             {lastScore ? (
