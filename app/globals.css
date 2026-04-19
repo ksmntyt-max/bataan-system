@@ -19,6 +19,17 @@
   --glow-g:  0 0 24px rgba(0,255,136,.35);
   --font-orbitron: 'Orbitron', monospace;
   --font-space: 'Space Grotesk', sans-serif;
+
+  /* ── Visual Hierarchy System ── */
+  --priority-high:   #E63946;                    /* Layer 3 — HIGH urgency parcels   */
+  --priority-medium: #F4A261;                    /* Layer 3 — MEDIUM urgency parcels */
+  --priority-low:    #A8DADC;                    /* Layer 3 — LOW urgency parcels    */
+  --zone-afab:       rgba(255,200,50,0.18);      /* Layer 2 — AFAB/FAB fill          */
+  --zone-sbfz:       rgba(50,180,255,0.15);      /* Layer 2 — SBFZ fill              */
+  --zone-stroke:     rgba(255,255,255,0.60);     /* Layer 2 — zone border stroke     */
+  --ui-bg:           #FFFFFF;                    /* Layer 5 — popup / tooltip bg     */
+  --ui-text:         #1A1A2E;                    /* Layer 5 — popup / tooltip text   */
+  --ui-accent:       #0066FF;                    /* Layer 5 — popup title / links    */
 }
 * { margin:0; padding:0; box-sizing:border-box }
 html,body { width:100vw; height:100vh; overflow:hidden; background:var(--bg); color:var(--text); font-family:var(--font-space),sans-serif }
@@ -266,9 +277,9 @@ html,body { width:100vw; height:100vh; overflow:hidden; background:var(--bg); co
 .land-card.top-match::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; border-radius:6px 6px 0 0; background:linear-gradient(90deg,transparent,var(--gold),transparent) }
 .lc-header { display:flex; align-items:flex-start; gap:8px; margin-bottom:6px }
 .lc-urgency { font-family:var(--font-orbitron); font-size:7px; letter-spacing:.1em; padding:3px 6px; border-radius:2px; flex-shrink:0; margin-top:1px }
-.urg-high { background:rgba(255,51,85,.15); border:1px solid rgba(255,51,85,.4); color:#ff3355 }
-.urg-med  { background:rgba(255,107,53,.12); border:1px solid rgba(255,107,53,.35); color:#ff6b35 }
-.urg-low  { background:rgba(74,98,120,.15); border:1px solid rgba(74,98,120,.3); color:var(--dim) }
+.urg-high { background:rgba(230,57,70,.14);  border:1px solid rgba(230,57,70,.45);  color:var(--priority-high) }
+.urg-med  { background:rgba(244,162,97,.14); border:1px solid rgba(244,162,97,.45); color:var(--priority-medium) }
+.urg-low  { background:rgba(168,218,220,.14);border:1px solid rgba(168,218,220,.4); color:var(--priority-low) }
 .lc-name  { font-family:var(--font-orbitron); font-size:9px; font-weight:700; color:var(--text); line-height:1.35; flex:1; min-width:0 }
 .lc-tag   { font-family:var(--font-orbitron); font-size:7px; padding:2px 5px; background:rgba(255,204,0,.1); border:1px solid rgba(255,204,0,.3); border-radius:2px; color:var(--gold); white-space:nowrap; flex-shrink:0 }
 .lc-meta  { display:flex; flex-direction:column; gap:4px; margin-bottom:7px }
@@ -303,15 +314,15 @@ html,body { width:100vw; height:100vh; overflow:hidden; background:var(--bg); co
 .score-big { font-family:var(--font-orbitron); font-size:9px; letter-spacing:.1em; color:var(--dim) }
 .score-num { font-family:var(--font-orbitron); font-size:26px; font-weight:900 }
 
-/* MAP POPUPS — MapLibre GL */
+/* MAP POPUPS — MapLibre GL (Layer 5 — UI overlays: white bg, dark text) */
 .maplibregl-map { background:#e8edf2 }
-.mpop .maplibregl-popup-content { background:rgba(8,18,38,.97); border:1px solid var(--border); border-radius:6px; color:var(--text); backdrop-filter:blur(12px); padding:13px 16px; font-family:var(--font-space); box-shadow:0 8px 32px rgba(0,0,0,.7) }
-.mpop.maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color:rgba(8,18,38,.97) }
-.mpop.maplibregl-popup-anchor-top    .maplibregl-popup-tip { border-bottom-color:rgba(8,18,38,.97) }
-.mpop.maplibregl-popup-anchor-left   .maplibregl-popup-tip { border-right-color:rgba(8,18,38,.97) }
-.mpop.maplibregl-popup-anchor-right  .maplibregl-popup-tip { border-left-color:rgba(8,18,38,.97) }
-.mpop .maplibregl-popup-close-button { color:var(--dim); font-size:16px; padding:4px 8px }
-.mpop .maplibregl-popup-close-button:hover { color:var(--danger) }
+.mpop .maplibregl-popup-content { background:var(--ui-bg); border:1px solid rgba(0,0,0,.10); border-radius:8px; color:var(--ui-text); padding:13px 16px; font-family:var(--font-space); box-shadow:0 4px 20px rgba(0,0,0,.18),0 1px 4px rgba(0,0,0,.10) }
+.mpop.maplibregl-popup-anchor-bottom .maplibregl-popup-tip { border-top-color:var(--ui-bg) }
+.mpop.maplibregl-popup-anchor-top    .maplibregl-popup-tip { border-bottom-color:var(--ui-bg) }
+.mpop.maplibregl-popup-anchor-left   .maplibregl-popup-tip { border-right-color:var(--ui-bg) }
+.mpop.maplibregl-popup-anchor-right  .maplibregl-popup-tip { border-left-color:var(--ui-bg) }
+.mpop .maplibregl-popup-close-button { color:rgba(26,26,46,.4); font-size:16px; padding:4px 8px }
+.mpop .maplibregl-popup-close-button:hover { color:var(--priority-high) }
 /* MapLibre controls — dark BLIS theme */
 .maplibregl-ctrl-group { background:rgba(8,18,38,.92) !important; border:1px solid var(--border) !important; border-radius:5px !important; box-shadow:0 2px 12px rgba(0,0,0,.45) !important }
 .maplibregl-ctrl-group button { background:transparent !important; color:var(--text) !important }
@@ -322,9 +333,10 @@ html,body { width:100vw; height:100vh; overflow:hidden; background:var(--bg); co
 .maplibregl-ctrl-scale { background:rgba(8,18,38,.82) !important; border:1px solid var(--border) !important; border-top:none !important; color:var(--text) !important; font-size:9px !important; font-family:var(--font-orbitron) !important; padding:2px 5px !important }
 .maplibregl-ctrl-geolocate { background:transparent !important }
 .maplibregl-ctrl-geolocate .maplibregl-ctrl-icon { filter:invert(1) sepia(1) saturate(2) hue-rotate(175deg) !important }
-.pt { font-family:var(--font-orbitron); font-size:12px; font-weight:700; color:var(--accent); margin-bottom:9px }
-.pr { display:flex; justify-content:space-between; font-size:10px; padding:3px 0; border-bottom:1px solid rgba(255,255,255,.05); gap:18px }
-.pk{color:var(--dim)}.pv{color:var(--text);font-weight:500}
+.pt { font-family:var(--font-orbitron); font-size:12px; font-weight:700; color:var(--ui-accent); margin-bottom:9px }
+.pr { display:flex; justify-content:space-between; font-size:10px; padding:3px 0; border-bottom:1px solid rgba(26,26,46,.07); gap:18px }
+.pk { color:rgba(26,26,46,.55) }
+.pv { color:var(--ui-text); font-weight:500 }
 .amark { width:34px; height:34px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; border:2px solid currentColor; box-shadow:0 0 14px currentColor; position:relative; cursor:pointer }
 .amark.rec-marker { width:38px; height:38px; font-size:16px; opacity:.85 }
 .score-badge { position:absolute; top:-10px; right:-10px; font-family:var(--font-orbitron); font-size:8px; font-weight:700; background:rgba(0,0,0,.88); border:1px solid currentColor; border-radius:3px; padding:2px 4px }
@@ -345,8 +357,8 @@ html,body { width:100vw; height:100vh; overflow:hidden; background:var(--bg); co
 .pp-header { display:flex; align-items:flex-start; gap:10px; padding:18px 20px 14px; border-bottom:1px solid var(--border) }
 .pp-urgency-badge { display:flex; align-items:center; gap:5px; flex-shrink:0; padding-top:3px }
 .urg-dot { width:7px; height:7px; border-radius:50%; flex-shrink:0 }
-.urg-dot.urg-high { background:#ff3355; box-shadow:0 0 6px #ff3355 }
-.urg-dot.urg-med  { background:#ff6b35; box-shadow:0 0 6px #ff6b35 }
+.urg-dot.urg-high { background:var(--priority-high);   box-shadow:0 0 6px var(--priority-high) }
+.urg-dot.urg-med  { background:var(--priority-medium); box-shadow:0 0 6px var(--priority-medium) }
 .urg-dot.urg-low  { background:var(--dim) }
 .pp-title-wrap { flex:1 }
 .pp-title { font-family:var(--font-orbitron); font-size:14px; font-weight:900; color:#fff; line-height:1.2; margin-bottom:3px }

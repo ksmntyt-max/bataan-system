@@ -9,6 +9,17 @@ import { calcScore, landCompatScore, scoreColor, zonalColor } from '@/lib/scorin
 // ── CONSTANTS ─────────────────────────────────────────────────────────────────
 const OMNIMESH_COLORS = { Node:'#00b4ff', Sentinel:'#00ff88', Pulse:'#ff6b35', Whisper:'#9c44ff' }
 
+// Visual Hierarchy — priority colors (mirrors CSS --priority-* vars)
+const PRIORITY = { high:'#E63946', medium:'#F4A261', low:'#A8DADC' }
+
+// Visual Hierarchy — zone fill + stroke colors (Layer 2)
+const ZONE_CLR = {
+  sbfz:  { fill:'rgba(50,180,255,0.15)',  stroke:'rgba(255,255,255,0.60)' },
+  afab:  { fill:'rgba(255,200,50,0.18)',  stroke:'rgba(255,255,255,0.60)' },
+  heip:  { fill:'rgba(0,255,136,0.12)',   stroke:'rgba(255,255,255,0.55)' },
+  clark: { fill:'rgba(156,68,255,0.12)',  stroke:'rgba(255,255,255,0.55)' },
+}
+
 const SBFZ_POLY    = [[14.830,120.252],[14.857,120.258],[14.878,120.278],[14.882,120.303],[14.862,120.326],[14.838,120.322],[14.812,120.312],[14.798,120.290],[14.803,120.265],[14.820,120.252]]
 const FAB_POLY     = [[14.438,120.456],[14.453,120.460],[14.462,120.474],[14.456,120.486],[14.441,120.483],[14.434,120.469]]
 const HERMOSA_POLY = [[14.826,120.500],[14.840,120.504],[14.845,120.518],[14.836,120.527],[14.823,120.522],[14.818,120.508]]
@@ -326,7 +337,7 @@ export default function MapInner({
 
     // Land opportunity markers ────────────────────────────────────────────
     mkGroups.current.land = LAND_OPPS.map(p => {
-      const urgColor = p.urgency === 'HIGH' ? '#ff3355' : p.urgency === 'MEDIUM' ? '#ff6b35' : '#4a6278'
+      const urgColor = p.urgency === 'HIGH' ? PRIORITY.high : p.urgency === 'MEDIUM' ? PRIORITY.medium : PRIORITY.low
       const el  = mkEl(`<div class="land-mk"><div class="land-mk-score">${landCompatScore(p, null)}</div><div class="land-mk-inner" style="border-color:${urgColor}"><span class="land-mk-icon">🏗</span></div><div class="land-mk-urg" style="background:${urgColor}20;border:1px solid ${urgColor}50;color:${urgColor}">${p.urgency}</div></div>`)
       const pop = new maplibregl.Popup({ className:'mpop', maxWidth:'300px' }).setHTML(buildLandPopup(p))
       const mk  = new maplibregl.Marker({ element: el }).setLngLat([p.lng, p.lat]).setPopup(pop).addTo(map)
@@ -344,10 +355,10 @@ export default function MapInner({
       id:'csv-clusters', type:'circle', source:'csv-parcels',
       filter:['has','point_count'], minzoom: 9,
       paint:{
-        'circle-color':  ['step',['get','point_count'],'#00b4ff',10,'#ffcc00',50,'#ff3355'],
+        'circle-color':  ['step',['get','point_count'],'#00b4ff',10,PRIORITY.medium,50,PRIORITY.high],
         'circle-radius': ['step',['get','point_count'],15,10,20,50,26],
         'circle-stroke-width':2,
-        'circle-stroke-color':['step',['get','point_count'],'#00b4ff',10,'#ffcc00',50,'#ff3355'],
+        'circle-stroke-color':['step',['get','point_count'],'#00b4ff',10,PRIORITY.medium,50,PRIORITY.high],
         'circle-opacity':0.88,
       },
     })
@@ -421,10 +432,10 @@ export default function MapInner({
 
     // Strategic context layer ─────────────────────────────────────────────
     const stratDefs = [
-      { coords:SBFZ_POLY,    color:'rgba(255,204,0,0.65)',  fill:'rgba(255,204,0,0.06)',  label:'⬡ SBFZ',     lngLat:[120.290,14.840], labelCol:'#ffcc00' },
-      { coords:FAB_POLY,     color:'rgba(0,180,255,0.65)',  fill:'rgba(0,180,255,0.07)',  label:'⬡ FAB',      lngLat:[120.470,14.449], labelCol:'#00b4ff' },
-      { coords:HERMOSA_POLY, color:'rgba(0,255,136,0.60)',  fill:'rgba(0,255,136,0.06)',  label:'⬡ HEIP',     lngLat:[120.513,14.833], labelCol:'#00ff88' },
-      { coords:CLARK_POLY,   color:'rgba(156,68,255,0.60)', fill:'rgba(156,68,255,0.06)', label:'⬡ CLARK FZ', lngLat:[120.533,15.183], labelCol:'#9c44ff' },
+      { coords:SBFZ_POLY,    color:ZONE_CLR.sbfz.stroke,  fill:ZONE_CLR.sbfz.fill,  label:'⬡ SBFZ',     lngLat:[120.290,14.840], labelCol:'#00b4ff' },
+      { coords:FAB_POLY,     color:ZONE_CLR.afab.stroke,  fill:ZONE_CLR.afab.fill,  label:'⬡ FAB',      lngLat:[120.470,14.449], labelCol:'#ffcc00' },
+      { coords:HERMOSA_POLY, color:ZONE_CLR.heip.stroke,  fill:ZONE_CLR.heip.fill,  label:'⬡ HEIP',     lngLat:[120.513,14.833], labelCol:'#00ff88' },
+      { coords:CLARK_POLY,   color:ZONE_CLR.clark.stroke, fill:ZONE_CLR.clark.fill, label:'⬡ CLARK FZ', lngLat:[120.533,15.183], labelCol:'#9c44ff' },
     ]
     const stratPolyFts = stratDefs.map(s => {
       const ring = xys(s.coords); ring.push(ring[0])
@@ -468,8 +479,8 @@ export default function MapInner({
     const sovFts = LAND_OPPS.flatMap(p => {
       const sp = SOVEREIGN_PROFILES[p.id]
       if (!sp) return []
-      const col     = sp.readiness >= 75 ? '#00ff88' : sp.readiness >= 45 ? '#ffcc00' : '#ff3355'
-      const ringCol = Object.values(sp.alignment).some(v => v === 'opposed') ? '#ff3355' : col
+      const col     = sp.readiness >= 75 ? '#00ff88' : sp.readiness >= 45 ? PRIORITY.medium : PRIORITY.high
+      const ringCol = Object.values(sp.alignment).some(v => v === 'opposed') ? PRIORITY.high : col
       const ring    = circleRing(p.lat, p.lng, 650); ring.push(ring[0])
       return [{ type:'Feature', id:p.id, properties:{ fillCol:`${ringCol}10`, lineCol:ringCol, pid:p.id }, geometry:{ type:'Polygon', coordinates:[ring] } }]
     })
@@ -513,6 +524,26 @@ export default function MapInner({
 
     // Hazard + CLUP are lazy-loaded — fetched only when user first toggles them ON
     // See lazyLoadLayer() above
+
+    // ── ENFORCE VISUAL HIERARCHY ──────────────────────────────────────────
+    // Strict z-order: Layer2 zone fills → Layer3 parcels → Layer3 lines → Layer4 HTML markers
+    // MapLibre layers render in add order; moveLayer() corrects post-add.
+    // HTML markers are always DOM-on-top regardless of GeoJSON layer order.
+    ;['strat-fills','strat-lines'].forEach(id => {
+      // Zone fills must sit BELOW parcel circles (csv-clusters)
+      if (map.getLayer(id) && map.getLayer('csv-clusters'))
+        map.moveLayer(id, 'csv-clusters')
+    })
+    ;['zones-outer-fill','zones-inner-fill','zones-line'].forEach(id => {
+      // Municipality zone circles also below parcels
+      if (map.getLayer(id) && map.getLayer('csv-clusters'))
+        map.moveLayer(id, 'csv-clusters')
+    })
+    // Province outline stays at very bottom of BLIS layers
+    ;['province-fill','province-line'].forEach(id => {
+      if (map.getLayer(id) && map.getLayer('zones-outer-fill'))
+        map.moveLayer(id, 'zones-outer-fill')
+    })
   }
 
   // ── csvParcels sync ───────────────────────────────────────────────────────
