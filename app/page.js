@@ -6,8 +6,9 @@ import Link from 'next/link'
 import GlobeScreen from '@/components/GlobeScreen'
 import Sidebar from '@/components/Sidebar'
 import ParcelPanel from '@/components/ParcelPanel'
+import ZonePanel from '@/components/ZonePanel'
 import InvestmentCalc from '@/components/InvestmentCalc'
-import { ASSETS } from '@/lib/data'
+import { ASSETS, ZONE_DATA } from '@/lib/data'
 import { scoreColor } from '@/lib/scoring'
 
 const MapWrapper = dynamic(() => import('@/components/MapWrapper'), { ssr: false })
@@ -41,6 +42,7 @@ export default function Home() {
   const [lastScore,     setLastScore]     = useState(null)
   const [selectedParcel,setSelectedParcel]= useState(null)
   const [showCalc,      setShowCalc]      = useState(false)
+  const [selectedZone,  setSelectedZone]  = useState(null)
   const [csvParcels,    setCsvParcels]    = useState([])
   const [flyTarget,     setFlyTarget]     = useState(null)
   const [mapRef,        setMapRef]        = useState(null)
@@ -116,6 +118,7 @@ export default function Home() {
               heatmapOn={heatmapOn} zonesOn={zonesOn} infraOn={infraOn} recsOn={recsOn} landOn={landOn}
               sovereignOn={sovereignOn} omnimeshOn={omnimeshOn} strategicOn={strategicOn}
               onParcelSelect={setSelectedParcel}
+              onZoneSelect={setSelectedZone}
               onScoreUpdate={setLastScore}
               csvParcels={csvParcels}
               flyTarget={flyTarget}
@@ -189,6 +192,18 @@ export default function Home() {
       {/* Parcel detail panel */}
       {selectedParcel && (
         <ParcelPanel parcel={selectedParcel} onClose={() => setSelectedParcel(null)} />
+      )}
+
+      {/* Zone info panel — AFAB / SBFZ */}
+      {selectedZone && ZONE_DATA[selectedZone] && (
+        <ZonePanel
+          zoneKey={selectedZone}
+          onClose={() => setSelectedZone(null)}
+          onDeployHere={key => {
+            const z = ZONE_DATA[key]
+            if (z?.center) setFlyTarget({ lat: z.center.lat, lng: z.center.lng })
+          }}
+        />
       )}
 
       {/* Investment comparison modal */}

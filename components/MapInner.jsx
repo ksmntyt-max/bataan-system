@@ -72,7 +72,7 @@ export default function MapInner({
   selectedAsset,
   heatmapOn, zonesOn, infraOn, recsOn, landOn,
   sovereignOn, omnimeshOn, strategicOn,
-  onParcelSelect, onScoreUpdate,
+  onParcelSelect, onScoreUpdate, onZoneSelect,
   csvParcels, deployedPins, onPinDeploy, onPinRemove,
   flyTarget,
 }) {
@@ -82,15 +82,15 @@ export default function MapInner({
   const mkGroups    = useRef({})          // name -> Marker[]
   const placing     = useRef({ active: false, assetId: null })
   const pinMks      = useRef(new Map())   // pinId -> Marker
-  const cb          = useRef({ onParcelSelect, onPinDeploy, onPinRemove, onScoreUpdate })
+  const cb          = useRef({ onParcelSelect, onPinDeploy, onPinRemove, onScoreUpdate, onZoneSelect })
   const groupOn      = useRef({})          // name -> boolean (user's desired on/off)
   const lazyLoaded   = useRef({ hazard: false, clup: false })
   const hoverLabelRef = useRef(null)       // floating city/district hover label
   const [coords, setCoords] = useState({ lat:'14.6560', lng:'120.4900' })
   const [legendOpen, setLegendOpen] = useState(false)
 
-  useEffect(() => { cb.current = { onParcelSelect, onPinDeploy, onPinRemove, onScoreUpdate } },
-    [onParcelSelect, onPinDeploy, onPinRemove, onScoreUpdate])
+  useEffect(() => { cb.current = { onParcelSelect, onPinDeploy, onPinRemove, onScoreUpdate, onZoneSelect } },
+    [onParcelSelect, onPinDeploy, onPinRemove, onScoreUpdate, onZoneSelect])
 
   // ── TOGGLE ────────────────────────────────────────────────────────────────
   function toggle(name, on) {
@@ -433,20 +433,27 @@ export default function MapInner({
 
     // Strategic context layer ─────────────────────────────────────────────
     const stratDefs = [
-      { coords:SBFZ_POLY,    color:ZONE_CLR.sbfz.stroke,  fill:ZONE_CLR.sbfz.fill,  label:'⬡ SBFZ',     lngLat:[120.290,14.840], labelCol:'#00b4ff' },
-      { coords:FAB_POLY,     color:ZONE_CLR.afab.stroke,  fill:ZONE_CLR.afab.fill,  label:'⬡ FAB',      lngLat:[120.470,14.449], labelCol:'#ffcc00' },
-      { coords:HERMOSA_POLY, color:ZONE_CLR.heip.stroke,  fill:ZONE_CLR.heip.fill,  label:'⬡ HEIP',     lngLat:[120.513,14.833], labelCol:'#00ff88' },
-      { coords:CLARK_POLY,   color:ZONE_CLR.clark.stroke, fill:ZONE_CLR.clark.fill, label:'⬡ CLARK FZ', lngLat:[120.533,15.183], labelCol:'#9c44ff' },
+      { coords:SBFZ_POLY,    color:ZONE_CLR.sbfz.stroke,  fill:ZONE_CLR.sbfz.fill,  label:'⬡ SBFZ',     lngLat:[120.290,14.840], labelCol:'#00b4ff', zoneKey:'SBFZ' },
+      { coords:FAB_POLY,     color:ZONE_CLR.afab.stroke,  fill:ZONE_CLR.afab.fill,  label:'⬡ FAB',      lngLat:[120.470,14.449], labelCol:'#ffcc00', zoneKey:'AFAB' },
+      { coords:HERMOSA_POLY, color:ZONE_CLR.heip.stroke,  fill:ZONE_CLR.heip.fill,  label:'⬡ HEIP',     lngLat:[120.513,14.833], labelCol:'#00ff88', zoneKey:'HEIP' },
+      { coords:CLARK_POLY,   color:ZONE_CLR.clark.stroke, fill:ZONE_CLR.clark.fill, label:'⬡ CLARK FZ', lngLat:[120.533,15.183], labelCol:'#9c44ff', zoneKey:'CLARK' },
     ]
     const stratPolyFts = stratDefs.map(s => {
       const ring = xys(s.coords); ring.push(ring[0])
-      return { type:'Feature', properties:{ color:s.color, fill:s.fill }, geometry:{ type:'Polygon', coordinates:[ring] } }
+      return { type:'Feature', properties:{ color:s.color, fill:s.fill, zoneKey:s.zoneKey }, geometry:{ type:'Polygon', coordinates:[ring] } }
     })
     map.addSource('strat-polys', { type:'geojson', data:{ type:'FeatureCollection', features:stratPolyFts } })
     map.addSource('strat-line',  { type:'geojson', data:{ type:'Feature', geometry:{ type:'LineString', coordinates:xys(BCIB_LINE) } } })
     map.addLayer({ id:'strat-fills', type:'fill', source:'strat-polys', minzoom:7, layout:{ visibility:'none' }, paint:{ 'fill-color':['get','fill'],  'fill-opacity':1 } })
     map.addLayer({ id:'strat-lines', type:'line', source:'strat-polys', minzoom:7, layout:{ visibility:'none' }, paint:{ 'line-color':['get','color'], 'line-width':1.5, 'line-dasharray':[8,5] } })
     map.addLayer({ id:'strat-bcib',  type:'line', source:'strat-line',  minzoom:7, layout:{ visibility:'none' }, paint:{ 'line-color':'#ffcc00', 'line-width':3, 'line-dasharray':[12,7], 'line-opacity':0.80 } })
+    map.on('click', 'strat-fills', e => {
+      if (placing.current.active) return
+      const zoneKey = e.features[0].properties.zoneKey
+      cb.current.onZoneSelect?.(zoneKey)
+    })
+    map.on('mouseenter', 'strat-fills', () => { map.getCanvas().style.cursor = 'pointer' })
+    map.on('mouseleave', 'strat-fills', () => { map.getCanvas().style.cursor = '' })
 
     const stratMks = []
     stratDefs.forEach(s => {

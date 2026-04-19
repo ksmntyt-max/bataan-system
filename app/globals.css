@@ -372,6 +372,28 @@ html,body { width:100vw; height:100vh; overflow:hidden; background:var(--bg); co
 .land-mk-score { position:absolute; top:-12px; left:50%; transform:translateX(-50%); font-family:var(--font-orbitron); font-size:8px; font-weight:700; background:rgba(0,0,0,.9); border:1px solid rgba(255,204,0,.5); border-radius:2px; padding:1px 4px; color:var(--gold); white-space:nowrap }
 .land-mk-urg { position:absolute; bottom:-12px; left:50%; transform:translateX(-50%); font-family:var(--font-orbitron); font-size:6.5px; letter-spacing:.06em; padding:1px 4px; border-radius:2px; white-space:nowrap }
 
+/* ═══ ZONE INFO PANEL ═══ */
+.zone-overlay { position:fixed; inset:0; z-index:800; background:rgba(0,0,0,.55); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center }
+.zone-panel { background:linear-gradient(135deg,#0b1525,#080f1e); border:1px solid var(--border); border-radius:10px; width:480px; max-width:96vw; max-height:88vh; overflow-y:auto; box-shadow:0 0 80px rgba(0,0,0,.9),var(--glow-b); display:flex; flex-direction:column }
+.zone-panel::-webkit-scrollbar { width:3px }
+.zone-panel::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px }
+.zp-header { padding:20px 22px 16px; border-left:4px solid transparent; border-bottom:1px solid var(--border) }
+.zp-header-top { display:flex; justify-content:space-between; align-items:flex-start; gap:12px }
+.zp-badge { display:inline-block; font-family:var(--font-orbitron); font-size:8px; letter-spacing:.12em; padding:3px 8px; border-radius:3px; margin-bottom:8px }
+.zp-title { font-family:var(--font-orbitron); font-size:15px; font-weight:900; color:#fff; margin:0 0 5px }
+.zp-authority { font-size:10px; color:var(--dim) }
+.zp-body { padding:18px 22px; flex:1 }
+.zp-section-label { font-family:var(--font-orbitron); font-size:8px; letter-spacing:.15em; color:var(--dim); margin-bottom:12px }
+.zp-pros { list-style:none; padding:0; margin:0; display:flex; flex-direction:column; gap:12px }
+.zp-pro-row { display:flex; align-items:flex-start; gap:12px }
+.zp-pro-icon { font-size:20px; flex-shrink:0; line-height:1; margin-top:1px }
+.zp-pro-text { flex:1 }
+.zp-pro-title { display:block; font-size:11px; font-weight:700; color:var(--text); margin-bottom:2px }
+.zp-pro-detail { font-size:10px; color:var(--dim); line-height:1.55; margin:0 }
+.zp-footer { padding:16px 22px; border-top:1px solid var(--border) }
+.zp-deploy-btn { width:100%; padding:11px 16px; border-radius:6px; cursor:pointer; font-family:var(--font-orbitron); font-size:10px; letter-spacing:.1em; transition:.2s; font-weight:700 }
+.zp-deploy-btn:hover { filter:brightness(1.2) }
+
 /* ═══ PARCEL PANEL ═══ */
 .parcel-overlay { position:fixed; inset:0; z-index:800; background:rgba(0,0,0,.6); backdrop-filter:blur(6px); display:flex; align-items:center; justify-content:center }
 .parcel-panel { background:linear-gradient(135deg,#0b1525,#080f1e); border:1px solid var(--border); border-radius:10px; width:520px; max-width:96vw; max-height:90vh; overflow-y:auto; box-shadow:0 0 80px rgba(0,0,0,.9),var(--glow-b); padding:0 }

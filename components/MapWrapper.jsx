@@ -16,3 +16,4 @@ const MapInner = dynamic(() => import('./MapInner'), {
 export default function MapWrapper(props) {
   return <MapInner {...props} />
 }
+
