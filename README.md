@@ -10,82 +10,146 @@ Live: [firma-blis.vercel.app](https://firma-blis.vercel.app) · GitHub: [ksmntyt
 
 ## What It Does
 
-BLIS maps and scores every municipality in Bataan for four asset types:
+BLIS maps and scores every municipality in Bataan for eight Firma asset types:
 
 | Asset | Description |
 |-------|-------------|
-| 🏛️ Firma HQ | SeedBase command hub |
-| 🏘️ Haven Village | Container housing community |
-| ⛏️ Steel Forge | BTC mining / industrial facility |
-| ☀️ Solar Farm | Sovereign energy generation |
+| 🏛️ HQ | SeedBase command hub |
+| 🏘️ Haven | Sovereign housing community |
+| ⛏️ Forge | Industrial compute facility |
+| ☀️ Solar | Renewable energy generation |
+| 📡 Pulse | Compute node / edge cluster |
+| 🎙️ Whisper | Comms relay / broadcast node |
+| 🛰️ Sentinel | Sensor / earth observation hub |
+| ⚡ Grid | Power distribution / microgrid |
 
-Click any point on the map to deploy an asset and instantly get a **composite score (0–100)** based on proximity to ports, power infrastructure, roads, zoning compatibility, and land cost.
+Click any point on the map to deploy an asset and instantly get a **composite score (0–100)** based on proximity to ports, power infrastructure, roads, zoning compatibility, land cost, and Firma sovereign readiness.
 
 ---
 
 ## Features
 
-- **Interactive Leaflet map** — dark tile base, province outline, zonal value overlays
-- **Composite scoring engine** — weighted haversine scoring across 5 infrastructure factors
-- **12 municipality profiles** — BIR zonal values, population, SEZ status, key features
-- **Hazard Zones overlay** — flood, storm surge, liquefaction (GeoJSON)
-- **CLUP Zoning overlay** — Agricultural, Industrial, Commercial, Protected zones (GeoJSON)
-- **CSV parcel database** — 12 pre-ranked land parcels with asset class, zoning, BIR value
+### Map & Visualization
+- **Globe intro screen** — animated entry before main app
+- **MapLibre GL JS v5 map** — OpenFreeMap vector tiles (liberty style), 5-layer visual hierarchy
+- **City/District hover** — municipality GeoJSON from GitHub CDN, hover shows name + zonal value + population
+- **Composite Heatmap** — province-wide investment score heat overlay
+- **13 map layers** (toggleable):
+  - Zone Layers — BIR zonal value zones color-coded by municipality
+  - Infrastructure Layer — ports, power grids, freeports, roads, fiber nodes
+  - Recommendations Layer — top-ranked deployment sites per asset type
+  - Land Parcels Layer — pre-screened acquisition targets with urgency ratings
+  - Hazard Zones Layer — PHIVOLCS flood, storm surge & liquefaction risk (GeoJSON)
+  - CLUP Zoning Layer — Agri, Industrial, Commercial, Protected zones (GeoJSON)
+  - Sovereign Layer — LGU alignment status & permit pathway readiness per parcel
+  - OmniMesh Network Layer — Node/Sentinel/Pulse/Whisper topology
+  - Strategic Context Layer — SBFZ, Clark FZ, FAB, Hermosa Ecozone, BCIB 2029 overlays
+
+### Asset Deployment
+- **Firma Asset Deploy System** — 8 asset types, click map to deploy pins, composite scoring
+- **Asset hover tooltips** — rich tooltip on toolbar hover showing tagline, description, best zones, incentive
+- **Pin management** — deploy, view score breakdown, remove from map or sidebar
+- **Deployed pin cards** — score breakdown per pin in PINS sidebar tab
+
+### Intelligence & Analysis
+- **Composite scoring engine** — weighted haversine scoring across infrastructure, zoning, cost, sovereignty factors
+- **Parcel Detail Panel** — slide-in panel when clicking CSV parcel circles
+- **Zone Panel** — click zone polygon → slide-in with investment intelligence, pros, authority, "Deploy Asset Here" CTA
 - **AI Land Scanner** — auto-ranks parcels by asset compatibility with scan animation
-- **Investment Calculator** — Side A vs Side B scenario comparison with ROI, break-even, revenue
 - **Municipality Comparison** — all 12 municipalities side-by-side at `/compare`
-- **Google Street View** — deep-link from any pin, parcel, or recommendation
-- **Pin management** — deploy assets, view scores, remove pins from map or sidebar
-- **Map Legend** — collapsible on-map legend explaining every indicator and color
-- **Layer descriptions** — each sidebar layer toggle shows what the layer represents
-- **Print to PDF** — browser-native export of parcel detail panels
+- **Investment Calculator modal** — scenario analysis with composite scoring
+
+### Data & Intelligence
+- **12 municipality profiles** — BIR zonal values, population, SEZ status, key features
+- **CSV parcel database** — pre-ranked land parcels with asset class, zoning, urgency
+- **Recommendations per asset type** — top-ranked sites with fly-to + Street View
+
+### UX & Navigation
+- **Sidebar redesign** — light card system (#F7F8FA bg, white cards, pill tabs)
+- **6 sidebar tabs**: LAYERS, PINS, RECS, LAND, DATA, ECO
+- **Google Street View** — deep-link from pins, parcels, recommendations
+- **Map Legend** — collapsible on-map legend with color reference
+- **Layer descriptions** — each toggle shows what it represents
+
+### Governance & Compliance
+- **Sovereignty Ladder** — 5-step pathway with compliance checklists
+- **NS Simulator Mode** — Nation of Heaven Simulator integration
+- **Firma Product Grid** — 8 asset types + grid of infrastructure options
+- **Firmamint Chain Status** — tokenomics & blockchain readiness
+- **OmniMesh Status** — network node topology & deployment readiness
+
+### Accessibility & Export
+- **WCAG AA compliance** — map canvas role, layer switch toggles, keyboard nav, aria-live score updates
+- **Print to PDF** — browser-native export of detail panels
+- **Toast notifications** — role="status" for user feedback
 
 ---
 
-## Map Indicators
+## Map Visual Hierarchy
 
-| Indicator | Meaning |
-|-----------|---------|
-| Blue dashed outline | Province of Bataan boundary |
-| 🟢 Green dot | Low zonal value — ₱800–2,500/sqm |
-| 🟡 Yellow dot | Mid zonal value — ₱2,500–5,000/sqm |
-| 🟠 Orange dot | High zonal value — ₱5,000–8,500/sqm |
-| 🔵 Blue infra icon | Port / Freeport (SBFZ/SBMA) |
-| 🟠 Orange infra icon | Power grid / substation |
-| 🟡 Yellow infra icon | Road / highway node |
-| 🟣 Purple infra icon | Fiber / connectivity hub |
-| Red parcel badge | HIGH urgency land — act now |
-| Orange parcel badge | MEDIUM urgency — good opportunity |
-| Grey parcel badge | LOW urgency — monitor & watch |
-| Score badge on pin | Composite investment score 0–100 |
+### Zone Colors (Zonal Value)
+| Color | Value Range | Meaning |
+|-------|-------------|---------|
+| 🟢 Green | ₱800–2,500/sqm | Low zonal value — agricultural/rural |
+| 🟡 Yellow | ₱2,500–5,000/sqm | Mid zonal value — emerging zones |
+| 🟠 Orange | ₱5,000–8,500/sqm | High zonal value — industrial/ecozone |
+| 🔴 Red | ₱8,500+/sqm | Critical zonal value — premium sites |
 
-Open the **⬡ MAP LEGEND** button (bottom-left of map) for a full in-app reference.
+### Infrastructure Icons
+| Icon | Meaning |
+|------|---------|
+| 🔵 Blue | Port / Freeport (SBFZ/SBMA) |
+| 🟠 Orange | Power grid / substation |
+| 🟡 Yellow | Road / highway node |
+| 🟣 Purple | Fiber / connectivity hub |
+
+### Parcel Urgency Badges
+| Badge | Meaning |
+|-------|---------|
+| 🔴 RED | HIGH urgency — deploy now |
+| 🟠 ORANGE | MEDIUM urgency — good opportunity |
+| ⚫ GREY | LOW urgency — monitor & watch |
+
+### Deployed Asset Pins
+- Score badge displays composite investment score (0–100)
+- Color indicates asset type (HQ, Haven, Forge, Solar, Pulse, Whisper, Sentinel, Grid)
+- Click pin to view detailed score breakdown
+
+Open the **⬡ MAP LEGEND** button (bottom-left of map) for a full in-app reference with all indicators and definitions.
 
 ---
 
-## Map Layers
+## Map Layers (13 Total)
 
-| Layer | Description |
-|-------|-------------|
-| Zonal Value Zones | BIR land values per sqm — color-coded by municipality |
-| Infrastructure | Ports, power grids, freeports, roads & fiber nodes |
-| Recommendations | Top-ranked deployment sites per Firma asset type |
-| Land Parcels | Pre-screened acquisition targets with urgency ratings |
-| Composite Heatmap | Province-wide investment score heat by location |
-| Hazard Zones | PHIVOLCS flood, storm surge & liquefaction risk areas |
-| CLUP Zoning | Municipal land use plan — Agri, Industrial, Commercial, Protected |
+Toggled via the **LAYERS** sidebar tab. All layers are vector tiles (MapLibre GL JS) except where noted.
+
+| Layer | Type | Description |
+|-------|------|-------------|
+| Zone Layers | Vector | BIR zonal value zones color-coded by municipality |
+| Infrastructure | Vector | Ports, power grids, freeports, roads, fiber nodes |
+| Recommendations | Vector | Top-ranked deployment sites per asset type |
+| Land Parcels | CSV circles | Pre-screened parcels with urgency ratings |
+| Composite Heatmap | Raster | Province-wide investment score heat overlay |
+| Hazard Zones | GeoJSON | PHIVOLCS flood, storm surge, liquefaction risk areas |
+| CLUP Zoning | GeoJSON | Municipal land use plan (Agri, Industrial, Commercial, Protected) |
+| Sovereign Layer | Vector | LGU alignment status & permit pathway readiness per parcel |
+| OmniMesh Network | Vector | Firma EDGE node/sentinel/pulse/whisper topology |
+| Strategic Context | Vector | SBFZ, Clark FZ, FAB, Hermosa Ecozone, BCIB 2029 overlays |
+
+All GeoJSON and CSV data source files are in `/public/data/`.
 
 ---
 
 ## Stack
 
-- **Next.js 16** (App Router, static export)
+- **Next.js 16** (App Router)
 - **React 19**
-- **Leaflet 1.9** (client-side only, `ssr: false`)
+- **MapLibre GL JS v5** (client-side only, `ssr: false`)
+- **OpenFreeMap vector tiles** (liberty style)
 - **Orbitron + Space Grotesk** (Google Fonts)
 - **Vercel** (deployment)
 
-No external APIs. No database. All data is static (CSV + GeoJSON in `/public/data/`).
+No external APIs. No database. No environment variables required. All data is static (CSV + GeoJSON in `/public/data/`).
 
 ---
 
@@ -94,24 +158,26 @@ No external APIs. No database. All data is static (CSV + GeoJSON in `/public/dat
 ```
 bataan-lis/
 ├── app/
-│   ├── page.js              # Main map interface
-│   ├── layout.js            # Root layout + fonts
-│   ├── globals.css          # All styles
+│   ├── page.js              # Main map interface (uses useBLISState)
+│   ├── layout.js            # Root layout (Orbitron + Space Grotesk fonts)
+│   ├── globals.css          # All styles (card system, tabs, sidebar)
 │   └── compare/
 │       └── page.js          # Municipality comparison table
 ├── components/
-│   ├── GlobeScreen.jsx      # Animated entry screen
+│   ├── GlobeScreen.jsx      # Animated globe entry screen
 │   ├── MapWrapper.jsx       # Dynamic import wrapper (ssr:false)
-│   ├── MapInner.jsx         # Leaflet map, layers, legend, scoring
-│   ├── Sidebar.jsx          # 5-tab sidebar (Layers/Pins/Recs/Land/Data)
-│   ├── ParcelPanel.jsx      # Parcel detail slide-in panel
-│   ├── ScoreBreakdown.jsx   # 4-factor score bars
-│   ├── InvestmentCalc.jsx   # Investment comparison modal
+│   ├── MapInner.jsx         # MapLibre GL JS v5 map, 13 layers, legend
+│   ├── Sidebar.jsx          # 6-tab sidebar (LAYERS/PINS/RECS/LAND/DATA/ECO)
+│   ├── ParcelPanel.jsx      # Parcel detail slide-in
+│   ├── ZonePanel.jsx        # Zone info panel (AFAB/SBFZ)
+│   ├── ScoreBreakdown.jsx   # Score breakdown display
+│   ├── InvestmentCalc.jsx   # Investment calculator modal
 │   ├── CompareTable.jsx     # Municipality comparison table
-│   └── StreetViewButton.jsx # Google Street View deep-link button
+│   └── StreetViewButton.jsx # Google Street View deep-link
 ├── lib/
-│   ├── data.js              # All static data (municipalities, assets, recs, parcels)
-│   └── scoring.js           # Haversine scoring engine
+│   ├── data.js              # ASSETS (8 types), MUNICIPALITIES, INFRA, RECS, LAND_OPPS, ZONE_DATA, SOVEREIGN_PROFILES, OMNIMESH_NODES, BATAAN_OUTLINE
+│   ├── scoring.js           # calcScore, landCompatScore, scoreColor, zonalColor, formatPHP
+│   └── useBLISState.js      # Central useReducer state hook (single source of truth)
 └── public/
     └── data/
         ├── parcels.csv
