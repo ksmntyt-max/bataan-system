@@ -370,9 +370,13 @@ export default function Sidebar({
                   {p.tag && <div className="lc-tag">{p.tag}</div>}
                 </div>
                 <div className="lc-meta">
-                  <span className="lc-muni">{MUNICIPALITIES.find(m => m.id === p.muniId)?.name}</span>
-                  <span className="lc-class">{p.class}</span>
-                  <span className="lc-price">₱{p.priceMin.toLocaleString()}–{p.priceMax.toLocaleString()}/sqm</span>
+                  <div className="lc-meta-row">
+                    <span className="lc-muni">{MUNICIPALITIES.find(m => m.id === p.muniId)?.name}</span>
+                    <span className="lc-class">{p.class}</span>
+                  </div>
+                  <div className="lc-meta-row">
+                    <span className="lc-price">₱{p.priceMin.toLocaleString()}–{p.priceMax.toLocaleString()}/sqm</span>
+                  </div>
                 </div>
                 <div className="lc-compat">
                   COMPAT: <span style={{color: scoreColor(p._compat)}}>{p._compat}/100</span>

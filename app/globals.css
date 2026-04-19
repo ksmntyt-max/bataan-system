@@ -260,21 +260,22 @@ html,body { width:100vw; height:100vh; overflow:hidden; background:var(--bg); co
 .fpill.on { border-color:var(--gold); background:rgba(255,204,0,.12); color:var(--gold) }
 .fsel { background:rgba(0,0,0,.4); border:1px solid var(--border); border-radius:3px; color:var(--text); padding:4px 8px; font-family:var(--font-space); font-size:9px; flex:1; outline:none; cursor:pointer }
 .fsel option { background:#0b1525 }
-.land-card { background:rgba(0,0,0,.35); border:1px solid var(--border); border-radius:6px; padding:12px; margin-bottom:7px; transition:.25s; position:relative; overflow:hidden }
+.land-card { background:rgba(0,0,0,.35); border:1px solid var(--border); border-radius:6px; padding:12px; margin-bottom:7px; transition:.25s; position:relative }
 .land-card:hover { border-color:rgba(255,204,0,.35) }
 .land-card.top-match { border-color:rgba(255,204,0,.5); box-shadow:0 0 18px rgba(255,204,0,.1) }
-.land-card.top-match::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; background:linear-gradient(90deg,transparent,var(--gold),transparent) }
-.lc-header { display:flex; align-items:flex-start; gap:8px; margin-bottom:7px }
+.land-card.top-match::before { content:''; position:absolute; top:0; left:0; right:0; height:2px; border-radius:6px 6px 0 0; background:linear-gradient(90deg,transparent,var(--gold),transparent) }
+.lc-header { display:flex; align-items:flex-start; gap:8px; margin-bottom:6px }
 .lc-urgency { font-family:var(--font-orbitron); font-size:7px; letter-spacing:.1em; padding:3px 6px; border-radius:2px; flex-shrink:0; margin-top:1px }
 .urg-high { background:rgba(255,51,85,.15); border:1px solid rgba(255,51,85,.4); color:#ff3355 }
 .urg-med  { background:rgba(255,107,53,.12); border:1px solid rgba(255,107,53,.35); color:#ff6b35 }
 .urg-low  { background:rgba(74,98,120,.15); border:1px solid rgba(74,98,120,.3); color:var(--dim) }
-.lc-name  { font-family:var(--font-orbitron); font-size:9px; font-weight:700; color:var(--text); line-height:1.35; flex:1 }
+.lc-name  { font-family:var(--font-orbitron); font-size:9px; font-weight:700; color:var(--text); line-height:1.35; flex:1; min-width:0 }
 .lc-tag   { font-family:var(--font-orbitron); font-size:7px; padding:2px 5px; background:rgba(255,204,0,.1); border:1px solid rgba(255,204,0,.3); border-radius:2px; color:var(--gold); white-space:nowrap; flex-shrink:0 }
-.lc-meta  { display:flex; gap:6px; align-items:center; margin-bottom:7px; flex-wrap:wrap }
+.lc-meta  { display:flex; flex-direction:column; gap:4px; margin-bottom:7px }
+.lc-meta-row { display:flex; align-items:center; gap:6px }
 .lc-muni  { font-size:9px; color:var(--dim) }
-.lc-class { font-size:8px; padding:2px 5px; border-radius:2px; background:rgba(0,180,255,.08); border:1px solid rgba(0,180,255,.2); color:var(--accent) }
-.lc-price { font-family:var(--font-orbitron); font-size:9px; color:var(--gold); margin-left:auto }
+.lc-class { font-size:8px; padding:2px 5px; border-radius:2px; background:rgba(0,180,255,.08); border:1px solid rgba(0,180,255,.2); color:var(--accent); white-space:nowrap }
+.lc-price { font-family:var(--font-orbitron); font-size:9px; color:var(--gold) }
 .lc-compat { font-family:var(--font-orbitron); font-size:9px; margin-bottom:6px }
 .lc-score-bar { height:3px; background:rgba(255,255,255,.06); border-radius:2px; margin-bottom:8px; overflow:hidden }
 .lc-score-fill { height:100%; border-radius:2px; transition:1s }
