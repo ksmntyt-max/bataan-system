@@ -88,29 +88,24 @@ export default function MapInner({
 
     const map = new maplibregl.Map({
       container: divRef.current,
-      style: {
-        version: 8,
-        sources: {
-          carto: {
-            type: 'raster',
-            tiles: [
-              'https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-              'https://b.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-              'https://c.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-              'https://d.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png',
-            ],
-            tileSize: 256, maxzoom: 19,
-          },
-        },
-        layers: [{ id: 'carto-base', type: 'raster', source: 'carto' }],
-      },
-      center: [120.47, 14.65], zoom: 11, minZoom: 8,
-      maxBounds: [[118.8, 13.2], [122.2, 16.5]],
+      style: 'https://tiles.openfreemap.org/styles/liberty',
+      center: [120.47, 14.65],
+      zoom: 11,
+      minZoom: 6,
+      maxZoom: 18,
+      maxBounds: [[116.0, 4.5], [127.0, 21.5]],
       attributionControl: false,
     })
 
-    map.addControl(new maplibregl.NavigationControl({ showCompass: false }), 'top-left')
-    map.addControl(new maplibregl.AttributionControl({ compact: true }), 'bottom-right')
+    map.addControl(new maplibregl.AttributionControl({
+      customAttribution: '© OpenStreetMap · PSA · SBMA · AFAB · BLIS v2'
+    }), 'bottom-right')
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right')
+    map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left')
+    map.addControl(new maplibregl.GeolocateControl({
+      positionOptions: { enableHighAccuracy: true },
+      trackUserLocation: false,
+    }), 'top-right')
     map$.current = map
 
     map.on('mousemove', e =>
