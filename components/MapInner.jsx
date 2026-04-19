@@ -83,8 +83,9 @@ export default function MapInner({
   const placing     = useRef({ active: false, assetId: null })
   const pinMks      = useRef(new Map())   // pinId -> Marker
   const cb          = useRef({ onParcelSelect, onPinDeploy, onPinRemove, onScoreUpdate })
-  const groupOn     = useRef({})          // name -> boolean (user's desired on/off)
-  const lazyLoaded  = useRef({ hazard: false, clup: false })
+  const groupOn      = useRef({})          // name -> boolean (user's desired on/off)
+  const lazyLoaded   = useRef({ hazard: false, clup: false })
+  const hoverLabelRef = useRef(null)       // floating city/district hover label
   const [coords, setCoords] = useState({ lat:'14.6560', lng:'120.4900' })
   const [legendOpen, setLegendOpen] = useState(false)
 
@@ -544,6 +545,71 @@ export default function MapInner({
       if (map.getLayer(id) && map.getLayer('zones-outer-fill'))
         map.moveLayer(id, 'zones-outer-fill')
     })
+
+    // ── CITY / DISTRICT HOVER ─────────────────────────────────────────────
+    // PH municipality GeoJSON — no API key, served from GitHub (faeldon/philippines-json-maps)
+    let hovCityId = null
+    fetch('https://raw.githubusercontent.com/faeldon/philippines-json-maps/master/2023/geojson/municities/lowres/municities.0.001.json')
+      .then(r => r.json())
+      .then(geojson => {
+        if (!map$.current?.getStyle()) return
+        map.addSource('ph-cities', { type:'geojson', data:geojson, generateId:true })
+
+        // Highlight fill — inserted BELOW parcel circles so dots stay visible on top
+        map.addLayer({
+          id:'city-hover', type:'fill', source:'ph-cities', minzoom:8,
+          paint:{
+            'fill-color':'#4A90D9',
+            'fill-opacity':['case',['boolean',['feature-state','hover'],false],0.14,0],
+          },
+        }, 'csv-clusters')
+
+        // Hover outline — same level as fill
+        map.addLayer({
+          id:'city-outline', type:'line', source:'ph-cities', minzoom:8,
+          paint:{
+            'line-color':'#4A90D9',
+            'line-width':['case',['boolean',['feature-state','hover'],false],1.8,0],
+          },
+        }, 'csv-clusters')
+
+        // Transparent hit-target — added LAST so it sits on top and captures mouse events
+        map.addLayer({
+          id:'city-hit', type:'fill', source:'ph-cities', minzoom:8,
+          paint:{ 'fill-color':'transparent', 'fill-opacity':0 },
+        })
+
+        map.on('mousemove', 'city-hit', e => {
+          if (placing.current.active) return  // suppress during pin-deploy mode
+          const label = hoverLabelRef.current
+          if (!label) return
+          const p = e.features[0].properties
+
+          // Position label near cursor, prevent overflow on right/bottom edge
+          const x = e.point.x + 14
+          const y = e.point.y - 38
+          label.style.left    = x + 'px'
+          label.style.top     = y + 'px'
+          label.style.display = 'block'
+          label.innerHTML     = `<strong>${p.ADM3_EN || p.NAME || '—'}</strong><span>${p.ADM2_EN || p.PROVINCE || ''}</span>`
+
+          if (hovCityId !== null)
+            map.setFeatureState({ source:'ph-cities', id:hovCityId }, { hover:false })
+          hovCityId = e.features[0].id
+          map.setFeatureState({ source:'ph-cities', id:hovCityId }, { hover:true })
+          map.getCanvas().style.cursor = 'pointer'
+        })
+
+        map.on('mouseleave', 'city-hit', () => {
+          const label = hoverLabelRef.current
+          if (label) label.style.display = 'none'
+          if (hovCityId !== null)
+            map.setFeatureState({ source:'ph-cities', id:hovCityId }, { hover:false })
+          hovCityId = null
+          map.getCanvas().style.cursor = ''
+        })
+      })
+      .catch(() => {})
   }
 
   // ── csvParcels sync ───────────────────────────────────────────────────────
@@ -612,6 +678,8 @@ export default function MapInner({
   return (
     <div style={{ flex:1, position:'relative', minHeight:0, overflow:'hidden' }}>
       <div ref={divRef} style={{ width:'100%', height:'100%' }} />
+      {/* Layer 5 — floating city/district hover label */}
+      <div id="map-hover-label" ref={hoverLabelRef} />
 
       <div className="map-coords">
         <span className="cl">LAT</span> <span>{coords.lat}°N</span>
@@ -638,9 +706,9 @@ export default function MapInner({
             <div className="mleg-row"><div className="mleg-dot" style={{background:'#9c44ff'}} /><span>Fiber / connectivity</span></div>
 
             <div className="mleg-section" style={{marginTop:8}}>LAND PARCELS</div>
-            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ff3355',borderRadius:2}} /><span>HIGH urgency</span></div>
-            <div className="mleg-row"><div className="mleg-dot" style={{background:'#ff6b35',borderRadius:2}} /><span>MEDIUM urgency</span></div>
-            <div className="mleg-row"><div className="mleg-dot" style={{background:'#4a6278',borderRadius:2}} /><span>LOW urgency</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:PRIORITY.high,  borderRadius:2}} /><span>HIGH urgency</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:PRIORITY.medium,borderRadius:2}} /><span>MEDIUM urgency</span></div>
+            <div className="mleg-row"><div className="mleg-dot" style={{background:PRIORITY.low,   borderRadius:2}} /><span>LOW urgency</span></div>
 
             <div className="mleg-section" style={{marginTop:8}}>DEPLOYED ASSETS</div>
             <div className="mleg-row"><div className="mleg-dot" style={{background:'#00b4ff'}} /><span>🏛️ Firma HQ</span></div>

@@ -161,6 +161,16 @@ html,body { width:100vw; height:100vh; overflow:hidden; background:var(--bg); co
 #body-wrap { display:flex; flex:1; overflow:hidden }
 #map-wrap { flex:1; position:relative; height:100%; display:flex; flex-direction:column }
 
+/* City / district hover label (Layer 5 — floating UI overlay) */
+#map-hover-label {
+  position:absolute; display:none; pointer-events:none; z-index:999;
+  background:var(--ui-bg); border:1px solid rgba(0,0,0,.10); border-radius:8px;
+  padding:6px 12px; max-width:200px; line-height:1.55;
+  box-shadow:0 2px 10px rgba(0,0,0,.14); font-family:var(--font-space);
+}
+#map-hover-label strong { display:block; font-size:12px; font-weight:700; color:var(--ui-accent) }
+#map-hover-label span   { font-size:10px; color:rgba(26,26,46,.55); letter-spacing:.02em }
+
 /* Map coords overlay */
 .map-coords { position:absolute; top:10px; right:10px; z-index:400; background:rgba(8,18,38,.88); border:1px solid var(--border); border-radius:4px; padding:5px 10px; font-family:var(--font-orbitron); font-size:10px; color:var(--green); display:flex; gap:8px; align-items:center; backdrop-filter:blur(8px) }
 .cl { color:var(--dim); font-size:8px; letter-spacing:.1em }
