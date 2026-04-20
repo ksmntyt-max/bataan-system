@@ -218,4 +218,48 @@ npx vercel --prod
 
 ---
 
+## Roadmap: firma.quest/map
+
+Features from BLIS worth porting, in priority order:
+
+**Priority 1 — Core Map Intelligence (start here)**
+- Composite scoring engine — PORT + POWER + ROAD + ZONE + COST weighted scores per location click
+- Province-wide investment heatmap — color-coded heat overlay showing best deployment zones
+- BIR zonal value zones — land value bands per municipality, color-coded low→high
+- Asset type selector — arm a deployment type before clicking map
+- Click-to-score — click any map point → instant composite score + breakdown
+- Deployed pin management — save, view, and delete scored locations
+- Asset hover tooltips — tagline, best zones, incentive text per asset type
+
+**Priority 2 — Data Layers**
+- Hazard overlay — PHIVOLCS flood / storm surge / liquefaction zones (GeoJSON)
+- CLUP zoning — municipal land use: Agri / Industrial / Commercial / Protected
+- Infrastructure markers — ports, power grids, freeport boundaries, roads, fiber
+- Sovereign readiness layer — LGU alignment status per parcel
+- Strategic zones — SBFZ, AFAB, Clark FZ, Hermosa Ecozone, BCIB corridor
+
+**Priority 3 — Land Intelligence**
+- Pre-screened parcel database — urgency-rated (HIGH/MED/LOW), price range, compatibility score
+- AI land scanner — auto-ranks parcels by asset compatibility on demand
+- Sovereign profile per parcel — pathway readiness %, LGU tier alignment
+
+**Priority 4 — Zone & Investment Panels**
+- SBFZ & AFAB click panels — investment case, pros, authority, duty-free status, "Deploy Here" CTA
+- Investment calculator modal — ROI / capex comparison tool
+- Side-by-side compare table
+
+**Priority 5 — Governance & Ecosystem (deepest moat)**
+- Sovereignty Ladder — 5-step pathway (Land → LGU → Shard → Settlement → Sovereignty) with compliance checklists
+- NS Simulator mode switcher — Sandbox / Sim / Mint / Settle states
+- Firmamint chain status — shard ID, validators, $CIK staked, next milestone
+- Three-currency economy display — FIG Cash → $CIK → Local FIG flow
+- OmniMesh node topology map
+
+**UX (apply throughout)**
+- Street View links on every pin, rec, and parcel card
+- Fly-to navigation — click any rec or parcel → map animates to location
+- WCAG AA accessibility — keyboard nav, ARIA roles, aria-live score display
+
+---
+
 Built by **Firma Strategic** · Nation of Heaven EDGE Infrastructure Engine
