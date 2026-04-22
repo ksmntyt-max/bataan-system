@@ -207,8 +207,8 @@ export default function GlobeScreen({ onEnter }) {
           position: 'relative',
         }}>
           <ConnectionLines />
-          <div className="globe-locations" style={{ flexShrink: 0, position: 'relative', zIndex: 2 }}><GlobeLocationList /></div>
-          <div style={{ flexShrink: 0, alignSelf: 'stretch', position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center' }}><DotGlobe /></div>
+          <div className="globe-locations" style={{ flex: '0 0 auto', position: 'relative', zIndex: 2 }}><GlobeLocationList /></div>
+          <div style={{ flex: '1 1 0', minWidth: 0, alignSelf: 'stretch', position: 'relative', zIndex: 2 }}><DotGlobe /></div>
         </div>
       </div>
 

@@ -233,7 +233,7 @@ export default function DotGlobe() {
   return (
     <div
       ref={wrapperRef}
-      style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+      style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
     >
       <div style={{ position: 'relative', width: size, height: size, flexShrink: 0 }}>
         <canvas
