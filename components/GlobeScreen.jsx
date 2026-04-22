@@ -1,197 +1,237 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useState } from 'react'
+import dynamic from 'next/dynamic'
+import GlobeLocationList from '@/components/GlobeLocationList'
+import ConnectionLines from '@/components/ConnectionLines'
 
-function countUp(el, target, duration) {
-  if (!el) return
-  const start = Date.now()
-  const step = () => {
-    const p = Math.min(1, (Date.now() - start) / duration)
-    const ease = 1 - Math.pow(1 - p, 3)
-    el.textContent = Math.round(ease * target).toLocaleString()
-    if (p < 1) requestAnimationFrame(step)
-  }
-  requestAnimationFrame(step)
-}
+const DotGlobe = dynamic(() => import('@/components/DotGlobe'), { ssr: false })
 
 export default function GlobeScreen({ onEnter }) {
-  const canvasRef  = useRef(null)
-  const s1Ref = useRef(null); const s2Ref = useRef(null)
-  const s3Ref = useRef(null); const s4Ref = useRef(null)
-  const [time, setTime] = useState('--:--:-- UTC')
   const [entering, setEntering] = useState(false)
-
-  // UTC clock
-  useEffect(() => {
-    const tick = () => setTime(new Date().toUTCString().slice(17, 25) + ' UTC')
-    tick()
-    const id = setInterval(tick, 1000)
-    return () => clearInterval(id)
-  }, [])
-
-  // Count-up stats
-  useEffect(() => {
-    const t = setTimeout(() => {
-      countUp(s1Ref.current, 12,   700)
-      countUp(s2Ref.current, 1373, 1100)
-      countUp(s3Ref.current, 4,    600)
-      countUp(s4Ref.current, 12,   800)
-    }, 350)
-    return () => clearTimeout(t)
-  }, [])
-
-  // Starfield + shooting stars
-  useEffect(() => {
-    const c = canvasRef.current
-    if (!c) return
-    const ctx = c.getContext('2d')
-    let raf, shooters = []
-    const resize = () => { c.width = innerWidth; c.height = innerHeight }
-    resize()
-    window.addEventListener('resize', resize)
-
-    const stars = Array.from({ length: 420 }, () => {
-      const layer = Math.floor(Math.random() * 3)
-      return {
-        x: Math.random(), y: Math.random(),
-        r: layer === 0 ? Math.random() * .7 + .15 : layer === 1 ? Math.random() * 1.1 + .35 : Math.random() * 1.7 + .55,
-        b: Math.random() * .5 + .2 + layer * .15,
-        t: Math.random() * Math.PI * 2,
-        s: Math.random() * .0018 + .0003 + layer * .0003,
-        hue: Math.random() < .12 ? '255,220,180' : Math.random() < .08 ? '200,255,220' : '180,210,255',
-      }
-    })
-
-    const newShooter = () => {
-      const side = Math.random() < .5
-      return { x: side ? 0 : 1, y: Math.random() * .55, vx: (Math.random() * .0025 + .0015) * (side ? 1 : -1), vy: Math.random() * .0018 + .0008, len: Math.random() * 90 + 55, life: 1, decay: Math.random() * .018 + .008 }
-    }
-    const shootInterval = setInterval(() => { if (shooters.length < 4) shooters.push(newShooter()) }, 3800)
-
-    const draw = () => {
-      ctx.clearRect(0, 0, c.width, c.height)
-      stars.forEach(s => {
-        s.t += s.s * 55
-        const a = .18 + .82 * Math.abs(Math.sin(s.t))
-        ctx.beginPath(); ctx.arc(s.x * c.width, s.y * c.height, s.r, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(${s.hue},${a * s.b})`; ctx.fill()
-      })
-      shooters = shooters.filter(s => {
-        s.x += s.vx; s.y += s.vy; s.life -= s.decay
-        if (s.life <= 0 || s.x < -.1 || s.x > 1.1) return false
-        const tx = s.x * c.width, ty = s.y * c.height
-        const grad = ctx.createLinearGradient(tx - s.vx * s.len * c.width, ty - s.vy * s.len * c.height, tx, ty)
-        grad.addColorStop(0, 'rgba(0,180,255,0)')
-        grad.addColorStop(1, `rgba(210,235,255,${s.life * .85})`)
-        ctx.beginPath(); ctx.moveTo(tx - s.vx * s.len * c.width, ty - s.vy * s.len * c.height); ctx.lineTo(tx, ty)
-        ctx.strokeStyle = grad; ctx.lineWidth = 1.5; ctx.stroke()
-        ctx.beginPath(); ctx.arc(tx, ty, 1.8, 0, Math.PI * 2)
-        ctx.fillStyle = `rgba(255,255,255,${s.life})`; ctx.fill()
-        return true
-      })
-      raf = requestAnimationFrame(draw)
-    }
-    draw()
-    return () => { cancelAnimationFrame(raf); clearInterval(shootInterval); window.removeEventListener('resize', resize) }
-  }, [])
 
   function handleEnter() {
     setEntering(true)
-    setTimeout(() => onEnter(), 1100)
+    setTimeout(() => onEnter(), 900)
   }
 
   return (
-    <div className={`globe-screen${entering ? ' exit' : ''}`}>
-      <canvas ref={canvasRef} className="star-canvas" />
-      <div className="hex-grid" />
-      <div className="scanlines" />
-      <div className="sweep" />
+    <div style={{
+      position: 'fixed', inset: 0, overflow: 'hidden',
+      background: 'linear-gradient(160deg, #fafafa 0%, #f4f3ff 40%, #fafafa 100%)',
+      display: 'flex', flexDirection: 'column',
+      opacity: entering ? 0 : 1, transform: entering ? 'scale(1.04)' : 'scale(1)',
+      transition: 'opacity 0.85s ease, transform 0.9s ease',
+    }}>
 
-      <div className="corner c-tl" /><div className="corner c-tr" />
-      <div className="corner c-bl" /><div className="corner c-br" />
+      {/* Ambient gradient orbs */}
+      <div style={{
+        position: 'absolute', top: '-10%', right: '25%',
+        width: 600, height: 600, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(155,138,196,0.12) 0%, transparent 70%)',
+        pointerEvents: 'none',
+      }} />
+      <div style={{
+        position: 'absolute', bottom: '-5%', left: '10%',
+        width: 400, height: 400, borderRadius: '50%',
+        background: 'radial-gradient(circle, rgba(205,122,107,0.10) 0%, transparent 70%)',
+        pointerEvents: 'none',
+      }} />
 
-      <div className="hud-left">
-        <div className="hud-item"><span className="hud-val">12</span><span className="hud-lbl">MUNICIPALITIES</span></div>
-        <div className="hud-item"><span className="hud-val" style={{color:'var(--orange)'}}>1,373</span><span className="hud-lbl">KM² AREA</span></div>
-        <div className="hud-item"><span className="hud-val" style={{color:'var(--green)'}}>ONLINE</span><span className="hud-lbl">SYS STATUS</span></div>
-        <div className="hud-item"><span className="hud-val" style={{color:'var(--gold)'}}>2026</span><span className="hud-lbl">SMV EDITION</span></div>
-        <div className="hud-item"><span className="hud-val" style={{color:'var(--purple)'}}>14.65°N</span><span className="hud-lbl">LATITUDE</span></div>
-        <div className="hud-item"><span className="hud-val" style={{color:'var(--purple)'}}>120.49°E</span><span className="hud-lbl">LONGITUDE</span></div>
-      </div>
-
-      <div className="globe-wrap">
-        <div className="atmo-outer" /><div className="atmo-inner" />
-        <div className="orbit orbit-3" />
-        <div className="orbit orbit-2"><div className="orb-sat" style={{background:'var(--gold)',boxShadow:'0 0 10px var(--gold)'}} /></div>
-        <div className="orbit orbit-1"><div className="orb-sat" /></div>
-        <div className="globe">
-          <div className="globe-grid" /><div className="globe-night" />
-          <div className="land" style={{width:84,height:57,top:'21%',left:'51%','--lr':'rotate(-15deg)',background:'rgba(18,52,118,.42)'}} />
-          <div className="land" style={{width:54,height:37,top:'26%',left:'36%','--lr':'rotate(20deg)',background:'rgba(14,44,100,.36)'}} />
-          <div className="land" style={{width:70,height:43,top:'38%',left:'58%','--lr':'rotate(-5deg)',borderRadius:'40% 60% 70% 30%',background:'rgba(16,48,112,.40)'}} />
-          <div className="land" style={{width:94,height:32,top:'58%',left:'14%','--lr':'rotate(10deg)',borderRadius:'70% 30% 40% 60%',background:'rgba(11,36,88,.32)'}} />
-          <div className="land" style={{width:58,height:48,top:'48%',left:'39%','--lr':'rotate(-20deg)',background:'rgba(20,55,128,.38)'}} />
-          <div className="globe-shine" />
+      {/* Navbar */}
+      <nav style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        padding: '0 48px', height: 64, flexShrink: 0,
+        borderBottom: '1px solid rgba(155,138,196,0.10)',
+        background: 'rgba(255,255,255,0.72)', backdropFilter: 'blur(12px)',
+        position: 'relative', zIndex: 10,
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{
+            width: 11, height: 11, borderRadius: '50%', flexShrink: 0,
+            background: 'linear-gradient(135deg, #FF855C 0%, #F6718D 100%)',
+            boxShadow: '0 0 8px 2px rgba(155,138,196,0.55), 0 0 3px 1px rgba(205,122,107,0.45)',
+            display: 'inline-block',
+          }} />
+          <span style={{
+            fontFamily: 'var(--font-inter), Inter, sans-serif',
+            fontWeight: 600, fontSize: 16, color: '#1e1b4b', letterSpacing: '.01em',
+          }}>firma</span>
         </div>
-        <div className="ph-marker">
-          <div className="ph-ring3" /><div className="ph-ring2" /><div className="ph-ring" />
-          <div className="ph-dot" /><div className="ph-label">BATAAN · PH</div>
-        </div>
-      </div>
-
-      <div className="intro-panel">
-        <div className="firma-badge">FIRMA STRATEGIC · INTELLIGENCE DIVISION</div>
-        <h1 className="main-title">BATAAN<br/>LAND<br/>INTELLIGENCE<br/>SYSTEM</h1>
-        <div className="title-sub">Nation of Heaven · EDGE Infrastructure Engine v1.2<br/>Province of Bataan · Central Luzon, Philippines</div>
-        <div className="sys-stats">
-          <div className="stat"><span className="sv" ref={s1Ref} style={{'--sc':'var(--accent)'}}>0</span><span className="sl">Municipalities</span></div>
-          <div className="stat"><span className="sv" ref={s2Ref} style={{'--sc':'var(--orange)'}}>0</span><span className="sl">km² Province</span></div>
-          <div className="stat"><span className="sv" ref={s3Ref} style={{'--sc':'var(--green)'}}>0</span><span className="sl">Asset Classes</span></div>
-          <div className="stat"><span className="sv" ref={s4Ref} style={{'--sc':'var(--gold)'}}>0</span><span className="sl">Land Parcels</span></div>
-        </div>
-        <div className="asset-badges">
-          {[['🏛️','FIRMA HQ'],['🏘️','HAVEN VILLAGE'],['⛏️','STEEL FORGE'],['☀️','SOLAR FARM']].map(([ic,lb]) => (
-            <div key={lb} className="abadge"><span className="bi">{ic}</span> {lb}</div>
+        <div style={{ display: 'flex', gap: 32, alignItems: 'center' }}>
+          {['BLESS', 'Municipalities', 'Assets', 'Intelligence'].map(label => (
+            <span key={label} style={{
+              fontFamily: 'var(--font-inter), Inter, sans-serif',
+              fontSize: 13, color: '#9ca3af', letterSpacing: '.04em', cursor: 'pointer',
+              transition: 'color .2s',
+            }}
+              onMouseEnter={e => e.target.style.color = '#1e1b4b'}
+              onMouseLeave={e => e.target.style.color = '#9ca3af'}
+            >{label}</span>
           ))}
         </div>
-        <div className="status-row">
-          <div className="status-dot" />
-          <span className="status-txt">ALL SYSTEMS NOMINAL</span>
-          <span className="status-sep">·</span>
-          <span style={{color:'var(--dim)'}}>BLIS v1.2</span>
-          <span className="status-sep">·</span>
-          <span style={{color:'var(--dim)'}}>{time}</span>
-        </div>
-        <button className="enter-btn" onClick={handleEnter} disabled={entering}>
-          <span className="btn-arrow">{entering ? '◌' : '▶'}</span>
-          <span>{entering ? 'INITIALIZING...' : 'ENTER BATAAN'}</span>
-        </button>
-        <div className="enter-hint">Click to access the geospatial intelligence platform</div>
-      </div>
+      </nav>
 
-      <div className="ticker-wrap">
-        <div className="ticker-label">LIVE INTEL</div>
-        <div className="ticker-track">
-          <div className="ticker-inner">
+      {/* Hero */}
+      <div className="blis-hero" style={{
+        flex: 1, display: 'flex', alignItems: 'center',
+        padding: '0 48px 0 72px', overflow: 'hidden', gap: 40,
+      }}>
+
+        {/* Left copy */}
+        <div style={{ flex: '0 0 auto', maxWidth: 460, zIndex: 2, position: 'relative' }}>
+
+          {/* Eyebrow */}
+          <div style={{
+            fontFamily: 'var(--font-inter), Inter, sans-serif',
+            fontSize: 11, fontWeight: 600, letterSpacing: '.18em',
+            color: '#9ca3af', textTransform: 'uppercase', marginBottom: 20,
+            display: 'flex', alignItems: 'center', gap: 10,
+          }}>
+            <span style={{
+              width: 24, height: 1.5,
+              background: 'linear-gradient(90deg, #FF855C, #F6718D)',
+              display: 'inline-block', borderRadius: 1,
+            }} />
+            Land Intelligence System
+          </div>
+
+          {/* Headline */}
+          <h1 style={{
+            fontFamily: 'var(--font-playfair), "Playfair Display", Georgia, serif',
+            fontWeight: 800, lineHeight: 1.04, margin: '0 0 24px',
+            fontSize: 'clamp(56px, 7vw, 88px)',
+          }}>
+            <span style={{
+              display: 'block',
+              background: 'linear-gradient(135deg, #FF855C 0%, #F6718D 55%, #84A7F7 100%)',
+              WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+              backgroundClip: 'text',
+            }}>Bataan</span>
+            <span style={{
+              display: 'block', color: '#1e1b4b',
+              WebkitTextFillColor: '#1e1b4b',
+            }}>Strategy.</span>
+          </h1>
+
+          {/* Subtitle */}
+          <p style={{
+            fontFamily: 'var(--font-inter), Inter, sans-serif',
+            fontSize: 17, lineHeight: 1.7, color: '#6b7280',
+            margin: '0 0 36px', maxWidth: 420,
+          }}>
+            A sovereign network mapping land, settlements, and sustainable
+            infrastructure across Bataan Province, Philippines.
+          </p>
+
+          {/* Stats row */}
+          <div style={{
+            display: 'flex', gap: 32, marginBottom: 40,
+          }}>
             {[
-              'SBFZ Industrial Zone · DUTY-FREE · Mariveles · ₱3,500–8,500/sqm',
-              'Steel Forge Score · Mariveles Deepwater · 97/100 OPTIMAL',
-              'Samal Solar Belt · 1,373 km² Province Mapped · 12 Municipalities',
-              'Hermosa Commercial · HQ Prime Location · ₱4,200/sqm avg BIR',
-              'BCDA Dinalupihan SEZ · Mixed-Use · LOW RISK · RA 11453',
-              'Lamao Industrial · BTC Mining Optimal · 92MW Grid Access',
-              'Orani Coastal · Haven Village · 12 Land Parcels Pre-Ranked',
-            ].concat([
-              'SBFZ Industrial Zone · DUTY-FREE · Mariveles · ₱3,500–8,500/sqm',
-              'Steel Forge Score · Mariveles Deepwater · 97/100 OPTIMAL',
-              'Samal Solar Belt · 1,373 km² Province Mapped · 12 Municipalities',
-              'Hermosa Commercial · HQ Prime Location · ₱4,200/sqm avg BIR',
-              'BCDA Dinalupihan SEZ · Mixed-Use · LOW RISK · RA 11453',
-              'Lamao Industrial · BTC Mining Optimal · 92MW Grid Access',
-              'Orani Coastal · Haven Village · 12 Land Parcels Pre-Ranked',
-            ]).map((t, i) => <span key={i}>{t}</span>)}
+              { val: '12',    label: 'Municipalities' },
+              { val: '1,373', label: 'km² Mapped' },
+              { val: '4',     label: 'Asset Classes' },
+            ].map(s => (
+              <div key={s.label}>
+                <div style={{
+                  fontFamily: 'var(--font-playfair), serif',
+                  fontSize: 28, fontWeight: 700, color: '#1e1b4b', lineHeight: 1,
+                  background: 'linear-gradient(135deg, #FF855C, #F6718D)',
+                  WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent',
+                  backgroundClip: 'text',
+                }}>{s.val}</div>
+                <div style={{
+                  fontFamily: 'var(--font-inter), Inter, sans-serif',
+                  fontSize: 11, color: '#9ca3af', letterSpacing: '.06em',
+                  textTransform: 'uppercase', marginTop: 4,
+                }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* CTA + coordinate badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+            <button
+              onClick={handleEnter}
+              disabled={entering}
+              style={{
+                fontFamily: 'var(--font-inter), Inter, sans-serif',
+                fontSize: 14, fontWeight: 600, letterSpacing: '.04em',
+                color: '#fff', border: 'none', cursor: entering ? 'default' : 'pointer',
+                padding: '14px 32px', borderRadius: 9999,
+                background: 'linear-gradient(135deg, #FF855C 0%, #F6718D 55%, #84A7F7 100%)',
+                boxShadow: '0 8px 28px rgba(155,138,196,0.35)',
+                transition: 'transform .2s, box-shadow .2s',
+                display: 'flex', alignItems: 'center', gap: 10,
+                opacity: entering ? 0.7 : 1,
+              }}
+              onMouseEnter={e => { if (!entering) { e.currentTarget.style.transform = 'translateY(-2px)'; e.currentTarget.style.boxShadow = '0 14px 40px rgba(155,138,196,0.45)' } }}
+              onMouseLeave={e => { e.currentTarget.style.transform = ''; e.currentTarget.style.boxShadow = '0 8px 28px rgba(155,138,196,0.35)' }}
+            >
+              {entering ? 'Loading…' : 'Enter Map'} {!entering && <span style={{ fontSize: 16 }}>→</span>}
+            </button>
+
+            <div style={{
+              fontFamily: 'var(--font-inter), Inter, sans-serif',
+              fontSize: 12, color: '#9ca3af', display: 'flex', alignItems: 'center', gap: 6,
+            }}>
+              <span style={{
+                width: 7, height: 7, borderRadius: '50%',
+                background: '#FF855C', display: 'inline-block',
+                boxShadow: '0 0 6px rgba(205,122,107,0.6)',
+              }} />
+              14.65°N, 120.49°E
+            </div>
+          </div>
+
+          {/* System tag */}
+          <div style={{
+            marginTop: 28,
+            fontFamily: 'var(--font-inter), Inter, sans-serif',
+            fontSize: 10, letterSpacing: '.14em', color: '#c4b8d8',
+            textTransform: 'uppercase',
+          }}>
+            BLESS · Bataan Land Evaluation for Sustainable Settlements · v1.3
           </div>
         </div>
+
+        {/* Right section — location list + globe */}
+        <div className="blis-globe-wrapper" style={{
+          flex: '1 1 auto',
+          height: 'min(100vh, 680px)',
+          minWidth: 280,
+          display: 'flex', flexDirection: 'row',
+          alignItems: 'center', justifyContent: 'flex-end',
+          gap: 24, paddingRight: 48, overflow: 'hidden',
+          position: 'relative',
+        }}>
+          <ConnectionLines />
+          <div className="globe-locations" style={{ flexShrink: 0, position: 'relative', zIndex: 2 }}><GlobeLocationList /></div>
+          <div style={{ flexShrink: 0, alignSelf: 'stretch', position: 'relative', zIndex: 2, display: 'flex', alignItems: 'center' }}><DotGlobe /></div>
+        </div>
+      </div>
+
+      {/* Bottom strip */}
+      <div style={{
+        height: 48, flexShrink: 0, display: 'flex', alignItems: 'center',
+        padding: '0 48px', gap: 24,
+        borderTop: '1px solid rgba(155,138,196,0.08)',
+        background: 'rgba(255,255,255,0.5)', backdropFilter: 'blur(8px)',
+      }}>
+        {[
+          '🏛️ Firma HQ · Mariveles',
+          '🏘️ Haven Village · Orani',
+          '⛏️ Steel Forge · SBFZ',
+          '☀️ Hermosa Solar · 28 MW',
+          '⚓ Port of Mariveles · 6 Berths',
+        ].map((t, i) => (
+          <span key={i} style={{
+            fontFamily: 'var(--font-inter), Inter, sans-serif',
+            fontSize: 11, color: '#9ca3af', letterSpacing: '.04em', whiteSpace: 'nowrap',
+            paddingRight: 24, borderRight: i < 4 ? '1px solid rgba(155,138,196,0.12)' : 'none',
+          }}>{t}</span>
+        ))}
       </div>
     </div>
   )

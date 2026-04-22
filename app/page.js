@@ -34,6 +34,7 @@ export default function Home() {
     heatmap: heatmapOn, zones: zonesOn, infra: infraOn, recs: recsOn, land: landOn,
     hazard: hazardOn, clup: clupOn, sovereign: sovereignOn,
     omnimesh: omnimeshOn, strategic: strategicOn,
+    solar: solarOn, ports: portsOn, aviation: aviationOn, construction: constructionOn,
   } = activeLayers
 
   // ── UI-only state (not shared across components) ─────────────────────────
@@ -65,9 +66,9 @@ export default function Home() {
         {/* Topbar */}
         <div id="topbar">
           <div className="tb-logo">
-            <span className="lf">FIRMA</span><span className="ls">·</span><span className="lb">BLIS</span>
+            <span className="lf">FIRMA</span><span className="ls">·</span><span className="lb">BLESS</span>
           </div>
-          <div className="tb-title">Bataan Land Intelligence System v1.2</div>
+          <div className="tb-title">Bataan Land Evaluation for Sustainable Settlements v1.3</div>
           <div className="tbsp" />
           <Link href="/compare" className="tb-btn" style={{textDecoration:'none'}}>📊 COMPARE</Link>
           <button className={`tb-btn${heatmapOn ? ' on' : ''}`} onClick={() => actions.toggleLayer('heatmap')}>⬡ HEATMAP</button>
@@ -87,6 +88,7 @@ export default function Home() {
             heatmapOn={heatmapOn} zonesOn={zonesOn} infraOn={infraOn} recsOn={recsOn} landOn={landOn}
             hazardOn={hazardOn}     clupOn={clupOn}
             sovereignOn={sovereignOn} omnimeshOn={omnimeshOn} strategicOn={strategicOn}
+            solarOn={solarOn} portsOn={portsOn} aviationOn={aviationOn} constructionOn={constructionOn}
             onToggleHeatmap={() => actions.toggleLayer('heatmap')}
             onToggleZones={()   => actions.toggleLayer('zones')}
             onToggleInfra={()   => actions.toggleLayer('infra')}
@@ -97,6 +99,10 @@ export default function Home() {
             onToggleSovereign={() => actions.toggleLayer('sovereign')}
             onToggleOmnimesh={() => actions.toggleLayer('omnimesh')}
             onToggleStrategic={() => actions.toggleLayer('strategic')}
+            onToggleSolar={()   => actions.toggleLayer('solar')}
+            onTogglePorts={()   => actions.toggleLayer('ports')}
+            onToggleAviation={() => actions.toggleLayer('aviation')}
+            onToggleConstruction={() => actions.toggleLayer('construction')}
             deployedPins={deployedPins}
             onPinDelete={id => { actions.removePin(id); window.__blisRemovePin?.(id) }}
             onFlyToRec={handleFlyToRec}
@@ -108,6 +114,7 @@ export default function Home() {
               selectedAsset={activeAsset}
               heatmapOn={heatmapOn} zonesOn={zonesOn} infraOn={infraOn} recsOn={recsOn} landOn={landOn}
               sovereignOn={sovereignOn} omnimeshOn={omnimeshOn} strategicOn={strategicOn}
+              solarOn={solarOn} portsOn={portsOn} aviationOn={aviationOn} constructionOn={constructionOn}
               onParcelSelect={actions.selectParcel}
               onZoneSelect={actions.selectZone}
               onScoreUpdate={actions.setScore}

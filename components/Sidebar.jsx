@@ -134,6 +134,8 @@ export default function Sidebar({
   onToggleHeatmap, onToggleZones, onToggleInfra, onToggleRecs, onToggleLand,
   hazardOn, clupOn, onToggleHazard, onToggleClup,
   sovereignOn, omnimeshOn, strategicOn, onToggleSovereign, onToggleOmnimesh, onToggleStrategic,
+  solarOn, portsOn, aviationOn, constructionOn,
+  onToggleSolar, onTogglePorts, onToggleAviation, onToggleConstruction,
   deployedPins, onPinDelete, onFlyToRec,
   onOpenCalc,
 }) {
@@ -240,11 +242,15 @@ export default function Sidebar({
 
           <div className="shd" style={{marginTop:6}}>NEW DATA LAYERS</div>
           {[
-            { label:'Hazard Zones',     desc:'PHIVOLCS flood, storm surge & liquefaction risk areas',              on: hazardOn,    toggle: onToggleHazard,    dot: '#ff3355' },
-            { label:'CLUP Zoning',      desc:'Municipal land use plan — Agri, Industrial, Commercial, Protected',   on: clupOn,      toggle: onToggleClup,      dot: '#9c44ff' },
-            { label:'Sovereign Layer',  desc:'LGU alignment status & permit pathway readiness per parcel',          on: sovereignOn,  toggle: onToggleSovereign,  dot: '#00ff88' },
-            { label:'OmniMesh Network', desc:'Node/Sentinel/Pulse/Whisper topology — planned mesh coverage map',   on: omnimeshOn,   toggle: onToggleOmnimesh,   dot: '#00b4ff' },
-            { label:'Strategic Context',desc:'SBFZ · Clark FZ · FAB · Hermosa Ecozone · Airports · BCIB 2029',    on: strategicOn,  toggle: onToggleStrategic,  dot: '#ffcc00' },
+            { label:'Hazard Zones',     desc:'PHIVOLCS flood, storm surge & liquefaction risk areas',              on: hazardOn,      toggle: onToggleHazard,      dot: '#ff3355' },
+            { label:'CLUP Zoning',      desc:'Municipal land use plan — Agri, Industrial, Commercial, Protected',   on: clupOn,        toggle: onToggleClup,        dot: '#9c44ff' },
+            { label:'Sovereign Layer',  desc:'LGU alignment status & permit pathway readiness per parcel',          on: sovereignOn,   toggle: onToggleSovereign,   dot: '#00ff88' },
+            { label:'OmniMesh Network', desc:'Node/Sentinel/Pulse/Whisper topology — planned mesh coverage map',   on: omnimeshOn,    toggle: onToggleOmnimesh,    dot: '#00b4ff' },
+            { label:'Strategic Context',desc:'SBFZ · Clark FZ · FAB · Hermosa Ecozone · Airports · BCIB 2029',    on: strategicOn,   toggle: onToggleStrategic,   dot: '#ffcc00' },
+            { label:'Solar Farms',      desc:'GEM-verified solar installations — Hermosa, AFAB & Limay sites',     on: solarOn,       toggle: onToggleSolar,       dot: '#fde68a' },
+            { label:'Ports & Terminals',desc:'PPA & AFAB verified marine terminals — Mariveles, AFAB, Orion',     on: portsOn,       toggle: onTogglePorts,       dot: '#38bdf8' },
+            { label:'Aviation',         desc:'ICAO-verified airfields — Bataan Airfield (RPUB) & SFS/RPLB',       on: aviationOn,    toggle: onToggleAviation,    dot: '#a78bfa' },
+            { label:'Construction Zones',desc:'Active DPWH + AFAB projects — BCIB, AFAB Phase 3, NLEX connector', on: constructionOn, toggle: onToggleConstruction, dot: '#fb923c' },
           ].map(l => (
             <div key={l.label} className="lrow"
               role="switch" aria-checked={l.on} tabIndex={0}
